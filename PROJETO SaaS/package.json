@@ -1,0 +1,24 @@
+{
+  "name": "projeto-saas",
+  "version": "1.0.0",
+  "description": "SaaS para Personal Trainer - Fase 7",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "prisma:generate": "./node_modules/.bin/prisma generate",
+    "prisma:migrate": "./node_modules/.bin/prisma migrate dev --name init_fase7",
+    "prisma:execute": "./node_modules/.bin/prisma db execute --file prisma/migrations/manual_integridade/migration.sql",
+    "test:isolation": "vitest run tests/isolation.test.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@prisma/client": "^5.x.x",
+    "prisma": "^5.x.x",
+    "vitest": "^5.0.5"
+  }
+}
