@@ -6,8 +6,9 @@
 // - Campos sensíveis (cpf, extractedData) armazenados como payload cifrado (AES-256 na aplicação).
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
@@ -60,6 +61,17 @@ enum ExamStatus {
   PENDING_REVIEW
   CONFIRMED
   REJECTED
+}
+
+enum BillingStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+  INCOMPLETE
+  INCOMPLETE_EXPIRED
+  PAUSED
 }
 
 // ---------- Autenticação, LGPD e auditoria ----------
@@ -134,6 +146,8 @@ model Personal {
   extraPayments  ExtraPayment[]
   workouts       Workout[]
   exams          Exam[]
+  billingSubscription BillingSubscription?
+  stripeWebhookEvents StripeWebhookEvent[]
 
   @@map("personals")
 }
@@ -266,10 +280,31 @@ model Workout {
 
   personal    Personal @relation(fields: [personalId], references: [id], onDelete: Restrict)
   student     Student  @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  exercises   WorkoutExercise[]
 
   @@unique([id, personalId])
   @@index([personalId, studentId, updatedAt])
   @@map("workouts")
+}
+
+model WorkoutExercise {
+  id          String   @id @default(uuid())
+  personalId  String
+  workoutId   String
+  name        String
+  sets        Int
+  reps        String
+  restSeconds Int?
+  order       Int
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workout     Workout  @relation(fields: [workoutId, personalId], references: [id, personalId], onDelete: Cascade)
+
+  @@unique([workoutId, personalId, order])
+  @@index([personalId, workoutId])
+  @@map("workout_exercises")
 }
 
 model Exam {
@@ -289,4 +324,36 @@ model Exam {
   @@unique([id, personalId])
   @@index([personalId, status])
   @@map("exams")
+}
+
+model BillingSubscription {
+  id                    String        @id @default(uuid())
+  personalId            String        @unique
+  stripeSubscriptionId  String        @unique
+  stripeCustomerId      String?
+  stripePriceId         String
+  status                BillingStatus
+  currentPeriodEnd      DateTime?
+  cancelAtPeriodEnd     Boolean       @default(false)
+  lastEventCreated      Int           @default(0)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  personal              Personal      @relation(fields: [personalId], references: [id], onDelete: Restrict)
+
+  @@index([status, currentPeriodEnd])
+  @@map("billing_subscriptions")
+}
+
+model StripeWebhookEvent {
+  eventId       String   @id
+  type          String
+  personalId    String
+  subscriptionId String
+  receivedAt    DateTime @default(now())
+
+  personal      Personal @relation(fields: [personalId], references: [id], onDelete: Restrict)
+
+  @@index([personalId, receivedAt])
+  @@map("stripe_webhook_events")
 }

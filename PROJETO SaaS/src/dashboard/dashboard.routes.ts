@@ -4,11 +4,10 @@ import { CycleDuration } from '@prisma/client';
 import { DashboardService } from './dashboard.service';
 import { BiMetricsService } from '../bi/bi-metrics.service';
 import { logAccess } from '../db/scoped-prisma';
+import { AuthContext } from '../auth/auth-context';
 
-// Pressuposto: middleware de autenticação existente preenche req.auth a partir da sessão/JWT.
 // personalId NUNCA vem de body, query ou params.
-type AuthCtx = { userId: string; role: 'ADMIN' | 'PERSONAL' | 'STUDENT'; personalId: string | null };
-type AuthedRequest = Request & { auth?: AuthCtx };
+type AuthedRequest = Request & { auth?: AuthContext };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const JANELA_MAX_DIAS = 366;
@@ -33,7 +32,7 @@ const retentionSchema = z.object({
 
 function requirePersonal(req: AuthedRequest, res: Response, next: NextFunction) {
   const auth = req.auth;
-  if (!auth || auth.role !== 'PERSONAL' || !auth.personalId) {
+  if (!auth || auth.role !== 'PERSONAL' || !req.tenantId) {
     return res.status(403).json({ error: 'Acesso restrito a personal autenticado' });
   }
   next();
@@ -54,13 +53,13 @@ dashboardRouter.use(requirePersonal);
 dashboardRouter.get('/executive', async (req: AuthedRequest, res, next) => {
   try {
     const auth = req.auth!;
-    const service = new DashboardService(auth.personalId!);
+    const service = new DashboardService(req.tenantId!);
     const data = await service.executive();
 
     // Painel inclui contagem de exames (dado de saúde): registrado no AccessLog
     await logAccess({
       userId: auth.userId,
-      personalId: auth.personalId,
+      personalId: req.tenantId,
       action: 'READ',
       resource: 'dashboard.executive',
       purpose: 'gestao_operacional',
@@ -81,7 +80,7 @@ dashboardRouter.get('/bi/finance', async (req: AuthedRequest, res, next) => {
     const to = params.to ?? new Date();
     const from = params.from ?? new Date(to.getTime() - 30 * DAY_MS);
     const auth = req.auth!;
-    const service = new BiMetricsService(auth.personalId!);
+    const service = new BiMetricsService(req.tenantId!);
 
     const [mrr, churn, ltv] = await Promise.all([
       service.mrr(to),
@@ -91,7 +90,7 @@ dashboardRouter.get('/bi/finance', async (req: AuthedRequest, res, next) => {
 
     await logAccess({
       userId: auth.userId,
-      personalId: auth.personalId,
+      personalId: req.tenantId,
       action: 'READ',
       resource: 'bi.finance',
       purpose: 'gestao_financeira',
@@ -109,7 +108,7 @@ dashboardRouter.get('/bi/retention', async (req: AuthedRequest, res, next) => {
     const params = parseOr400(retentionSchema, req.query, res);
     if (!params) return;
 
-    const service = new BiMetricsService(req.auth!.personalId!);
+    const service = new BiMetricsService(req.tenantId!);
     const retencao = await service.retencao(params.cycle);
     res.json(retencao);
   } catch (err) {

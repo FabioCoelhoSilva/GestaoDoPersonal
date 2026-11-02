@@ -7,7 +7,10 @@
     "test": "tests"
   },
   "scripts": {
+    "start": "tsx src/server.ts",
+    "test": "vitest run",
     "prisma:generate": "./node_modules/.bin/prisma generate",
+    "prisma:billing-migrate": "./node_modules/.bin/prisma db execute --schema prisma/schema.prisma --file prisma/migrations/manual_billing_webhooks/migration.sql",
     "prisma:migrate": "./node_modules/.bin/prisma migrate dev --name init_fase7",
     "prisma:execute": "./node_modules/.bin/prisma db execute --file prisma/migrations/manual_integridade/migration.sql",
     "test:isolation": "vitest run tests/isolation.test.ts"
@@ -18,7 +21,17 @@
   "type": "commonjs",
   "devDependencies": {
     "@prisma/client": "^5.x.x",
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.19.2",
     "prisma": "^5.x.x",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
     "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "jose": "^6.2.15",
+    "zod": "^4.6.7"
   }
 }

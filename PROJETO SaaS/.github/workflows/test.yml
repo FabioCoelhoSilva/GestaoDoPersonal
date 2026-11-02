@@ -1,0 +1,64 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: saas_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d saas_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/saas_test?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/saas_test?schema=public
+      STRIPE_WEBHOOK_SECRET: whsec_ci_test_only
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Prisma schema
+        run: npx prisma validate --schema prisma/schema.prisma
+
+      - name: Generate Prisma Client
+        run: npx prisma generate --schema prisma/schema.prisma
+
+      - name: Create test database schema
+        run: npx prisma db push --schema prisma/schema.prisma
+
+      - name: Apply manual integrity constraints
+        run: npx prisma db execute --schema prisma/schema.prisma --file prisma/migrations/manual_integridade/migration.sql
+
+      - name: Run isolation tests
+        run: npm run test:isolation
+
+      - name: Run server and webhook tests
+        run: npx vitest run tests/server.test.ts tests/stripe-webhook-signature.test.ts tests/supabase-auth.middleware.test.ts tests/prisma-tenant-extension.test.ts tests/student-workout.service.test.ts

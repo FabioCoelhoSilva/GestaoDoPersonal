@@ -40,7 +40,7 @@ async function renewedContractIds(db: Db, ended: ContractRef[]): Promise<Set<str
   });
 
   for (const c of ended) {
-    const lo = c.endDate.getTime() - DAY_MS;
+    const lo = c.endDate.getTime();
     const hi = c.endDate.getTime() + BI_RULES.JANELA_RENOVACAO_DIAS * DAY_MS;
     const hasNext = candidates.some(
       (n) =>
