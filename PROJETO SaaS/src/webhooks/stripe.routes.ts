@@ -5,6 +5,7 @@ import {
   applyStripeSubscriptionEvent,
   BillingWebhookRejectedError,
 } from '../db/scoped-prisma';
+import { notifyPersonalSubscriptionStatus } from '../notifications/email.service';
 
 const SIGNATURE_TOLERANCE_SECONDS = 300;
 const SUBSCRIPTION_EVENTS = new Set([
@@ -206,12 +207,18 @@ export async function stripeWebhookHandler(req: RawRequest, res: WebhookResponse
         subscriptionId,
         status: event.type === 'invoice.paid' ? BillingStatus.ACTIVE : BillingStatus.PAST_DUE,
       });
+      if (result.statusChanged && !result.stale) {
+        await notifyPersonalSubscriptionStatus(result.personalId, result.status);
+      }
       return res.status(200).json({ received: true, ...result });
     }
 
     const input = subscriptionInput(event);
     if (!input) return res.status(400).json({ error: 'Evento de assinatura incompleto ou incompatível' });
     const result = await applyStripeSubscriptionEvent(input);
+    if (result.statusChanged && !result.stale) {
+      await notifyPersonalSubscriptionStatus(result.personalId, result.status);
+    }
     return res.status(200).json({ received: true, ...result });
   } catch (error) {
     if (error instanceof BillingWebhookRejectedError) {

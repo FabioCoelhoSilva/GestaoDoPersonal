@@ -5,6 +5,7 @@ export type AuthContext = {
   tenantId: string | null;
   personalId: string | null;
   studentId: string | null;
+  email?: string;
 };
 
 declare global {

@@ -85,6 +85,19 @@ describe('billing subscription service', () => {
     });
   });
 
+  it('denies a trial whose period has ended or has no expiry', async () => {
+    for (const currentPeriodEnd of [new Date(Date.now() - 1), null]) {
+      subscriptionFindUnique.mockResolvedValueOnce({
+        ...subscription,
+        status: BillingStatus.TRIALING,
+        currentPeriodEnd,
+      });
+      await expect(assertSubscriptionAccess('tenant-1')).rejects.toMatchObject({
+        code: 'SUBSCRIPTION_INACTIVE',
+      });
+    }
+  });
+
   it('denies access when there is no subscription or no active mapped plan', async () => {
     subscriptionFindUnique.mockResolvedValueOnce(null);
     await expect(assertSubscriptionAccess('tenant-1')).rejects.toBeInstanceOf(BillingAccessDeniedError);

@@ -14,6 +14,7 @@ type MiddlewareOptions = {
   keyResolver?: JWTVerifyGetKey;
   issuer?: string;
   lookupIdentity?: (providerSub: string) => Promise<AuthIdentity | null>;
+  allowUnprovisioned?: boolean;
 };
 
 export class SupabaseAuthConfigurationError extends Error {}
@@ -75,22 +76,35 @@ export function createSupabaseAuthMiddleware(options: MiddlewareOptions = {}): R
       }
 
       const identity = await (options.lookupIdentity ?? findPersonalAuthContextByProviderSub)(payload.sub);
+      const email = typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : undefined;
       if (
-        !identity ||
-        !identity.tenantId ||
-        (identity.role !== 'PERSONAL' && identity.role !== 'STUDENT') ||
-        (identity.role === 'STUDENT' && !identity.studentId)
+        !identity &&
+        (!options.allowUnprovisioned || !email || !email.includes('@'))
       ) {
         return res.status(403).json({ error: 'Utilizador sem tenant ou vínculo de aluno ativo' });
       }
 
+      if (
+        identity &&
+        (!identity.tenantId ||
+          (identity.role !== 'PERSONAL' && identity.role !== 'STUDENT') ||
+          (identity.role === 'STUDENT' && !identity.studentId))
+      ) {
+        return res.status(403).json({ error: 'Utilizador sem tenant ou vínculo de aluno ativo' });
+      }
+
+      if (identity?.role === 'STUDENT' && options.allowUnprovisioned) {
+        return res.status(403).json({ error: 'Apenas personal trainers podem ser provisionados' });
+      }
+
       const auth: AuthContext = {
-        userId: identity.userId,
+        userId: identity?.userId ?? payload.sub,
         subject: payload.sub,
-        role: identity.role,
-        tenantId: identity.tenantId,
-        personalId: identity.tenantId,
-        studentId: identity.studentId ?? null,
+        role: identity?.role ?? 'PERSONAL',
+        tenantId: identity?.tenantId ?? null,
+        personalId: identity?.tenantId ?? null,
+        studentId: identity?.studentId ?? null,
+        ...(email ? { email } : {}),
       };
       req.auth = auth;
       req.tenantId = auth.tenantId ?? undefined;

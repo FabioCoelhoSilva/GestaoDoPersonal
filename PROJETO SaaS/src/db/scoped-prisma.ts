@@ -1,4 +1,4 @@
-import { BillingStatus, PrismaClient } from '@prisma/client';
+import { BillingStatus, Prisma, PrismaClient } from '@prisma/client';
 
 // Cliente base: NÃO exportado. Só este módulo acessa o cliente sem escopo.
 const basePrisma = new PrismaClient();
@@ -267,6 +267,8 @@ export function scopedPrisma(tenantId: string) {
               const allowedRelations =
                 model === 'Workout'
                   ? ['exercises', 'personal', 'student']
+                  : model === 'WorkoutExercise'
+                    ? ['workout']
                   : model === 'WorkoutExecution'
                     ? ['personal', 'student', 'workout', 'setLogs']
                   : model === 'Student'
@@ -274,7 +276,10 @@ export function scopedPrisma(tenantId: string) {
                     : [];
               const data = stripTenantMutationData(a.data ?? {}, allowedRelations, tenantId);
               a.data =
-                ['Workout', 'Student', 'WorkoutExecution'].includes(model) && 'personal' in data
+                (
+                  ['Workout', 'Student', 'WorkoutExecution'].includes(model) &&
+                  'personal' in data
+                ) || (model === 'WorkoutExercise' && 'workout' in data)
                   ? data
                   : { ...data, ...scoped };
             }
@@ -414,6 +419,108 @@ export async function findPersonalAuthContextByProviderSub(providerSub: string) 
   return null;
 }
 
+export class PersonalProvisioningConflictError extends Error {
+  constructor() {
+    super('A identidade Supabase já está associada a outra conta');
+    this.name = 'PersonalProvisioningConflictError';
+  }
+}
+
+export class PersonalProvisioningPlanUnavailableError extends Error {
+  constructor() {
+    super('O plano inicial de avaliação não está disponível');
+    this.name = 'PersonalProvisioningPlanUnavailableError';
+  }
+}
+
+export async function provisionPersonalTenant(input: {
+  providerSub: string;
+  email: string;
+  trialPlanId: string;
+  trialDays: number;
+}) {
+  try {
+    return await basePrisma.$transaction(async (tx) => {
+      const existing = await tx.user.findUnique({
+        where: { providerSub: input.providerSub },
+        include: { personal: true },
+      });
+
+      if (existing) {
+        if (existing.role !== 'PERSONAL' || !existing.personal) {
+          throw new PersonalProvisioningConflictError();
+        }
+        return {
+          created: false,
+          userId: existing.id,
+          personalId: existing.personal.id,
+        };
+      }
+
+      const emailOwner = await tx.user.findUnique({ where: { email: input.email } });
+      if (emailOwner) throw new PersonalProvisioningConflictError();
+
+      const plan = await tx.plan.findFirst({
+        where: { id: input.trialPlanId, active: true },
+        select: { id: true, stripePriceId: true },
+      });
+      if (!plan) throw new PersonalProvisioningPlanUnavailableError();
+
+      const name = input.email.slice(0, input.email.indexOf('@')).slice(0, 120) || 'Personal';
+      const user = await tx.user.create({
+        data: {
+          email: input.email,
+          name,
+          role: 'PERSONAL',
+          provider: 'OAUTH',
+          providerSub: input.providerSub,
+          personal: { create: { name } },
+        },
+        include: { personal: true },
+      });
+
+      await tx.billingSubscription.create({
+        data: {
+          personalId: user.personal!.id,
+          planId: plan.id,
+          stripeSubscriptionId: `trial_${user.personal!.id}`,
+          stripePriceId: plan.stripePriceId,
+          status: BillingStatus.TRIALING,
+          currentPeriodEnd: new Date(Date.now() + input.trialDays * 24 * 60 * 60 * 1000),
+        },
+      });
+
+      return {
+        created: true,
+        userId: user.id,
+        personalId: user.personal!.id,
+      };
+    });
+  } catch (error) {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
+      throw error;
+    }
+
+    const [existing, emailOwner] = await Promise.all([
+      basePrisma.user.findUnique({
+        where: { providerSub: input.providerSub },
+        include: { personal: true },
+      }),
+      basePrisma.user.findUnique({ where: { email: input.email } }),
+    ]);
+
+    if (existing?.role === 'PERSONAL' && existing.personal) {
+      return {
+        created: false,
+        userId: existing.id,
+        personalId: existing.personal.id,
+      };
+    }
+    if (emailOwner) throw new PersonalProvisioningConflictError();
+    throw error;
+  }
+}
+
 export class BillingWebhookRejectedError extends Error {}
 
 export async function applyStripeSubscriptionEvent(input: {
@@ -451,7 +558,13 @@ export async function applyStripeSubscriptionEvent(input: {
       }],
       skipDuplicates: true,
     });
-    if (inserted.count === 0) return { duplicate: true, stale: false };
+    if (inserted.count === 0) return {
+      duplicate: true,
+      stale: false,
+      statusChanged: false,
+      status: input.status,
+      personalId: input.personalId,
+    };
 
     const current = await tx.billingSubscription.findUnique({
       where: { personalId: input.personalId },
@@ -508,7 +621,13 @@ export async function applyStripeSubscriptionEvent(input: {
         purpose: 'gestao_financeira',
       },
     });
-    return { duplicate: false, stale };
+    return {
+      duplicate: false,
+      stale,
+      statusChanged: !stale && current?.status !== input.status,
+      status: input.status,
+      personalId: input.personalId,
+    };
   });
 }
 
@@ -535,7 +654,13 @@ export async function applyStripeInvoiceEvent(input: {
       }],
       skipDuplicates: true,
     });
-    if (inserted.count === 0) return { duplicate: true, stale: false };
+    if (inserted.count === 0) return {
+      duplicate: true,
+      stale: false,
+      statusChanged: false,
+      status: input.status,
+      personalId: subscription.personalId,
+    };
 
     let stale =
       input.eventCreated < subscription.lastEventCreated ||
@@ -566,7 +691,20 @@ export async function applyStripeInvoiceEvent(input: {
         purpose: 'gestao_financeira',
       },
     });
-    return { duplicate: false, stale };
+    return {
+      duplicate: false,
+      stale,
+      statusChanged: !stale && subscription.status !== input.status,
+      status: input.status,
+      personalId: subscription.personalId,
+    };
+  });
+}
+
+export function findPersonalBillingEmail(personalId: string) {
+  return basePrisma.personal.findUnique({
+    where: { id: personalId },
+    select: { user: { select: { email: true } } },
   });
 }
 

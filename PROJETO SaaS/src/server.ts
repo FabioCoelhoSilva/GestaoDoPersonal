@@ -1,6 +1,9 @@
 import 'dotenv/config';
 import express, { RequestHandler } from 'express';
-import { supabaseAuthMiddleware } from './auth/supabase-auth.middleware';
+import {
+  createSupabaseAuthMiddleware,
+  supabaseAuthMiddleware,
+} from './auth/supabase-auth.middleware';
 import { dashboardRouter } from './dashboard/dashboard.routes';
 import { studentWorkoutRouter } from './students/student-workout.routes';
 import { workoutExecutionRouter } from './students/workout-execution.routes';
@@ -9,8 +12,14 @@ import { stripeWebhookHandler } from './webhooks/stripe.routes';
 import { subscriptionRouter } from './billing/subscription.routes';
 import { subscriptionAccessMiddleware } from './billing/subscription.middleware';
 import { apiErrorHandler } from './middleware/api-error-handler';
+import { onboardingRouter } from './onboarding/onboarding.routes';
 
-export function createApp(authMiddleware: RequestHandler = supabaseAuthMiddleware) {
+const onboardingAuthMiddleware = createSupabaseAuthMiddleware({ allowUnprovisioned: true });
+
+export function createApp(
+  authMiddleware: RequestHandler = supabaseAuthMiddleware,
+  provisionAuthMiddleware: RequestHandler = onboardingAuthMiddleware,
+) {
   const app = express();
   const personalOnly: RequestHandler = (req, res, next) => {
     if (!req.auth) return res.status(401).json({ error: 'Autenticação obrigatória' });
@@ -28,10 +37,11 @@ export function createApp(authMiddleware: RequestHandler = supabaseAuthMiddlewar
 
   app.use(express.json({ limit: '1mb' }));
 
+  app.use('/api/onboarding', provisionAuthMiddleware, onboardingRouter);
   app.use('/api', authMiddleware);
   app.use('/api/billing', subscriptionRouter);
   app.use(
-    ['/api/students', '/api/workouts', '/api/workout-executions'],
+    ['/api/students', '/api/workouts', '/api/workout-exercises', '/api/workout-executions'],
     subscriptionAccessMiddleware,
   );
   app.use('/api/dashboard', personalOnly, subscriptionAccessMiddleware, dashboardRouter);

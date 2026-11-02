@@ -14,6 +14,7 @@
     "prisma:billing-plans-migrate": "./node_modules/.bin/prisma db execute --schema prisma/schema.prisma --file prisma/migrations/manual_billing_plans/migration.sql",
     "prisma:migrate": "./node_modules/.bin/prisma migrate dev --name init_fase7",
     "prisma:execute": "./node_modules/.bin/prisma db execute --file prisma/migrations/manual_integridade/migration.sql",
+    "db:seed": "tsx prisma/seed.ts",
     "test:isolation": "node scripts/run-isolation-tests.cjs tests/isolation.test.ts"
   },
   "keywords": [],

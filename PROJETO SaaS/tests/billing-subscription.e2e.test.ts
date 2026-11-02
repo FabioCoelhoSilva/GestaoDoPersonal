@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto';
 import { BillingStatus, PrismaClient } from '@prisma/client';
 import { once } from 'node:events';
 import { Server } from 'node:http';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/server';
 import { createWorkoutPlan } from '../src/students/student-workout.service';
 
@@ -176,20 +176,56 @@ describe('billing subscription HTTP E2E', () => {
     const signature = createHmac('sha256', testWebhookSecret)
       .update(`${timestamp}.${rawEvent}`)
       .digest('hex');
-    const webhookResponse = await fetch(`${baseUrl}/webhooks/stripe`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'stripe-signature': `t=${timestamp},v1=${signature}`,
-      },
-      body: rawEvent,
-    });
-    expect(webhookResponse.status).toBe(200);
-    await expect(webhookResponse.json()).resolves.toMatchObject({
-      received: true,
-      duplicate: false,
-      stale: false,
-    });
+      const previousApiKey = process.env.RESEND_API_KEY;
+      const previousEmailFrom = process.env.EMAIL_FROM;
+      const originalFetch = globalThis.fetch;
+      const resendCalls: Array<{ headers: HeadersInit; body: string }> = [];
+      process.env.RESEND_API_KEY = 're_test_billing_e2e';
+      process.env.EMAIL_FROM = 'Gestao <no-reply@example.com>';
+      globalThis.fetch = (async (input, init) => {
+        if (String(input) === 'https://api.resend.com/emails') {
+          resendCalls.push({
+            headers: init?.headers ?? {},
+            body: String(init?.body ?? ''),
+          });
+          return new Response('{"id":"email_test"}', { status: 202 });
+        }
+        return originalFetch(input, init);
+      }) as typeof fetch;
+      try {
+        const request = () => fetch(`${baseUrl}/webhooks/stripe`, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'stripe-signature': `t=${timestamp},v1=${signature}`,
+          },
+          body: rawEvent,
+        });
+        const webhookResponse = await request();
+        expect(webhookResponse.status).toBe(200);
+        await expect(webhookResponse.json()).resolves.toMatchObject({
+          received: true,
+          duplicate: false,
+          stale: false,
+          statusChanged: true,
+        });
+        expect(resendCalls).toHaveLength(1);
+        expect(JSON.parse(resendCalls[0].body)).toMatchObject({
+          to: ['billing-b-' + suffix + '@test.invalid'],
+          subject: 'A sua subscrição está ativa',
+        });
+
+        const duplicateResponse = await request();
+        expect(duplicateResponse.status).toBe(200);
+        await expect(duplicateResponse.json()).resolves.toMatchObject({ duplicate: true });
+        expect(resendCalls).toHaveLength(1);
+      } finally {
+        globalThis.fetch = originalFetch;
+        if (previousApiKey === undefined) delete process.env.RESEND_API_KEY;
+        else process.env.RESEND_API_KEY = previousApiKey;
+        if (previousEmailFrom === undefined) delete process.env.EMAIL_FROM;
+        else process.env.EMAIL_FROM = previousEmailFrom;
+      }
     await expect(prisma.billingSubscription.findUniqueOrThrow({
       where: { personalId: tenantBId },
     })).resolves.toMatchObject({ status: BillingStatus.ACTIVE, planId });
@@ -226,5 +262,63 @@ describe('billing subscription HTTP E2E', () => {
       limit: 1,
       current: 1,
     });
+  });
+
+  it('keeps Stripe state committed and webhook successful when Resend repeatedly fails', async () => {
+      const timestamp = Math.floor(Date.now() / 1000);
+      const event = {
+        id: `evt_billing_failure_${suffix}`,
+        type: 'invoice.payment_failed',
+        created: timestamp,
+        data: { object: { subscription: `sub_billing_a_${suffix}` } },
+      };
+      const rawEvent = JSON.stringify(event);
+      const signature = createHmac('sha256', testWebhookSecret)
+        .update(`${timestamp}.${rawEvent}`)
+        .digest('hex');
+      const previousApiKey = process.env.RESEND_API_KEY;
+      const previousEmailFrom = process.env.EMAIL_FROM;
+      const originalFetch = globalThis.fetch;
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      let resendAttempts = 0;
+      process.env.RESEND_API_KEY = 're_test_billing_failure';
+      process.env.EMAIL_FROM = 'Gestao <no-reply@example.com>';
+      globalThis.fetch = (async (input, init) => {
+        if (String(input) === 'https://api.resend.com/emails') {
+          resendAttempts += 1;
+          return new Response('provider unavailable', { status: 503 });
+        }
+        return originalFetch(input, init);
+      }) as typeof fetch;
+
+      try {
+        const response = await fetch(`${baseUrl}/webhooks/stripe`, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'stripe-signature': `t=${timestamp},v1=${signature}`,
+          },
+          body: rawEvent,
+        });
+
+        expect(response.status).toBe(200);
+        await expect(response.json()).resolves.toMatchObject({
+          received: true,
+          statusChanged: true,
+          status: BillingStatus.PAST_DUE,
+        });
+        expect(resendAttempts).toBe(2);
+        await expect(prisma.billingSubscription.findUniqueOrThrow({
+          where: { personalId: tenantAId },
+        })).resolves.toMatchObject({ status: BillingStatus.PAST_DUE });
+        expect(warn).toHaveBeenCalled();
+      } finally {
+        globalThis.fetch = originalFetch;
+        warn.mockRestore();
+        if (previousApiKey === undefined) delete process.env.RESEND_API_KEY;
+        else process.env.RESEND_API_KEY = previousApiKey;
+        if (previousEmailFrom === undefined) delete process.env.EMAIL_FROM;
+        else process.env.EMAIL_FROM = previousEmailFrom;
+      }
   });
 });

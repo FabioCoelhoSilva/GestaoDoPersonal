@@ -10,12 +10,15 @@ const { assertSafeTestDatabaseEnv } = require('../scripts/test-db-safety.cjs') a
 const testDatabaseUrl = assertSafeTestDatabaseEnv(process.env);
 const prisma = new PrismaClient({ datasourceUrl: testDatabaseUrl });
 const userEmail = `workout-e2e-${crypto.randomUUID()}@test.invalid`;
+const otherUserEmail = `workout-e2e-other-${crypto.randomUUID()}@test.invalid`;
 const gifUrl = 'https://cdn.example.com/exercises/squat.gif';
 
 let server: Server;
 let baseUrl: string;
 let personalId: string;
+let otherPersonalId: string;
 let billingPlanId: string;
+let otherUserId: string;
 
 beforeAll(async () => {
   const user = await prisma.user.create({
@@ -48,15 +51,40 @@ beforeAll(async () => {
       status: 'ACTIVE',
     },
   });
+  const otherUser = await prisma.user.create({
+    data: {
+      email: otherUserEmail,
+      name: 'Other E2E Personal',
+      role: 'PERSONAL',
+      provider: 'GOV_BR',
+    },
+  });
+  otherUserId = otherUser.id;
+  const otherPersonal = await prisma.personal.create({
+    data: { userId: otherUserId, name: 'Other E2E Personal' },
+  });
+  otherPersonalId = otherPersonal.id;
+  await prisma.billingSubscription.create({
+    data: {
+      personalId: otherPersonalId,
+      planId: billingPlanId,
+      stripeSubscriptionId: `sub_${crypto.randomUUID()}`,
+      stripePriceId: plan.stripePriceId,
+      status: 'ACTIVE',
+    },
+  });
 
   server = createApp((req, _res, next) => {
-    req.tenantId = personalId;
+    const otherTenant = req.header('x-e2e-tenant') === 'other';
+    const tenantId = otherTenant ? otherPersonalId : personalId;
+    const authenticatedUserId = otherTenant ? otherUserId : user.id;
+    req.tenantId = tenantId;
     req.auth = {
-      userId: user.id,
-      subject: user.id,
+      userId: authenticatedUserId,
+      subject: authenticatedUserId,
       role: 'PERSONAL',
-      tenantId: personalId,
-      personalId,
+      tenantId,
+      personalId: tenantId,
       studentId: null,
     };
     next();
@@ -71,13 +99,15 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (personalId) {
-    await prisma.workout.deleteMany({ where: { personalId } });
-    await prisma.student.deleteMany({ where: { personalId } });
-    await prisma.billingSubscription.deleteMany({ where: { personalId } });
+  if (personalId && otherPersonalId) {
+    const tenantIds = [personalId, otherPersonalId];
+    await prisma.workoutExecution.deleteMany({ where: { personalId: { in: tenantIds } } });
+    await prisma.workout.deleteMany({ where: { personalId: { in: tenantIds } } });
+    await prisma.student.deleteMany({ where: { personalId: { in: tenantIds } } });
+    await prisma.billingSubscription.deleteMany({ where: { personalId: { in: tenantIds } } });
     if (billingPlanId) await prisma.plan.deleteMany({ where: { id: billingPlanId } });
-    await prisma.personal.deleteMany({ where: { id: personalId } });
-    await prisma.user.deleteMany({ where: { email: userEmail } });
+    await prisma.personal.deleteMany({ where: { id: { in: tenantIds } } });
+    await prisma.user.deleteMany({ where: { email: { in: [userEmail, otherUserEmail] } } });
   }
   if (server) {
     await new Promise<void>((resolve, reject) => {
@@ -157,5 +187,150 @@ describe('students and workouts HTTP E2E with PostgreSQL', () => {
     });
     expect(persistedExercises.map(({ gifUrl: persistedGif }) => persistedGif))
       .toEqual([gifUrl, null]);
+
+    const foreignStudent = await fetch(`${baseUrl}/api/students/${studentId}`, {
+      headers: { 'x-e2e-tenant': 'other' },
+    });
+    expect(foreignStudent.status).toBe(404);
+    const foreignWorkoutUpdate = await fetch(`${baseUrl}/api/workouts/${workoutPayload.data.id}`, {
+      method: 'PATCH',
+      headers: {
+        'content-type': 'application/json',
+        'x-e2e-tenant': 'other',
+      },
+      body: JSON.stringify({ title: 'Cross-tenant mutation' }),
+    });
+    expect(foreignWorkoutUpdate.status).toBe(404);
+
+    const readStudent = await fetch(`${baseUrl}/api/students/${studentId}`);
+    expect(readStudent.status).toBe(200);
+    await expect(readStudent.json()).resolves.toMatchObject({
+      data: { id: studentId, personalId, name: 'E2E Student' },
+    });
+
+    const updateStudent = await fetch(`${baseUrl}/api/students/${studentId}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'E2E Student Updated' }),
+    });
+    expect(updateStudent.status).toBe(200);
+    await expect(updateStudent.json()).resolves.toMatchObject({
+      data: { id: studentId, name: 'E2E Student Updated' },
+    });
+
+    const listWorkouts = await fetch(`${baseUrl}/api/workouts`);
+    expect(listWorkouts.status).toBe(200);
+    await expect(listWorkouts.json()).resolves.toMatchObject({
+      data: [expect.objectContaining({ id: workoutPayload.data.id, personalId })],
+    });
+
+    const updateWorkout = await fetch(`${baseUrl}/api/workouts/${workoutPayload.data.id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ title: 'Plano E2E Atualizado' }),
+    });
+    expect(updateWorkout.status).toBe(200);
+    await expect(updateWorkout.json()).resolves.toMatchObject({
+      data: { id: workoutPayload.data.id, title: 'Plano E2E Atualizado' },
+    });
+
+    const exerciseList = await fetch(`${baseUrl}/api/workouts/${workoutPayload.data.id}/exercises`);
+    expect(exerciseList.status).toBe(200);
+    await expect(exerciseList.json()).resolves.toMatchObject({
+      data: [
+        expect.objectContaining({ id: persistedExercises[0].id, name: 'Agachamento' }),
+        expect.objectContaining({ id: persistedExercises[1].id, name: 'Remada' }),
+      ],
+    });
+
+    const updatedExercise = await fetch(
+      `${baseUrl}/api/workout-exercises/${persistedExercises[0].id}`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ notes: 'Execução controlada' }),
+      },
+    );
+    expect(updatedExercise.status).toBe(200);
+    await expect(updatedExercise.json()).resolves.toMatchObject({
+      data: { id: persistedExercises[0].id, notes: 'Execução controlada' },
+    });
+
+    const addedExercise = await fetch(
+      `${baseUrl}/api/workouts/${workoutPayload.data.id}/exercises`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Prancha',
+          sets: 3,
+          reps: '30 segundos',
+          order: 2,
+        }),
+      },
+    );
+    const addedExercisePayload = await addedExercise.json();
+    expect(addedExercise.status, JSON.stringify(addedExercisePayload)).toBe(201);
+    expect(addedExercisePayload.data).toMatchObject({
+      personalId,
+      workoutId: workoutPayload.data.id,
+      name: 'Prancha',
+      order: 2,
+    });
+
+    const deletedExercise = await fetch(
+      `${baseUrl}/api/workout-exercises/${addedExercisePayload.data.id}`,
+      { method: 'DELETE' },
+    );
+    expect(deletedExercise.status).toBe(204);
+
+    const execution = await prisma.workoutExecution.create({
+      data: {
+        personalId,
+        studentId,
+        workoutId: workoutPayload.data.id,
+      },
+    });
+    await prisma.workoutSetLog.create({
+      data: {
+        personalId,
+        workoutId: workoutPayload.data.id,
+        executionId: execution.id,
+        workoutExerciseId: persistedExercises[0].id,
+        setNumber: 1,
+        repsCompleted: 8,
+      },
+    });
+    const protectedExerciseUpdate = await fetch(
+      `${baseUrl}/api/workout-exercises/${persistedExercises[0].id}`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ notes: 'Não deve substituir histórico' }),
+      },
+    );
+    expect(protectedExerciseUpdate.status).toBe(409);
+
+    const protectedExerciseDelete = await fetch(
+      `${baseUrl}/api/workout-exercises/${persistedExercises[0].id}`,
+      { method: 'DELETE' },
+    );
+    expect(protectedExerciseDelete.status).toBe(409);
+
+    const archivedWorkout = await fetch(`${baseUrl}/api/workouts/${workoutPayload.data.id}`, {
+      method: 'DELETE',
+    });
+    expect(archivedWorkout.status).toBe(200);
+    await expect(archivedWorkout.json()).resolves.toMatchObject({
+      data: { id: workoutPayload.data.id, active: false },
+    });
+
+    const deactivatedStudent = await fetch(`${baseUrl}/api/students/${studentId}`, {
+      method: 'DELETE',
+    });
+    expect(deactivatedStudent.status).toBe(200);
+    await expect(deactivatedStudent.json()).resolves.toMatchObject({
+      data: { id: studentId, active: false },
+    });
   });
 });

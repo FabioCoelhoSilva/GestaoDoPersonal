@@ -82,7 +82,9 @@ export async function getBillingOverview(tenantId: string): Promise<BillingOverv
     : null;
   const statusAllowsAccess =
     subscription?.status === BillingStatus.ACTIVE ||
-    subscription?.status === BillingStatus.TRIALING;
+    (subscription?.status === BillingStatus.TRIALING &&
+      subscription.currentPeriodEnd !== null &&
+      subscription.currentPeriodEnd > new Date());
 
   return {
     subscription: subscription
@@ -107,7 +109,9 @@ function requireAccess(overview: BillingOverview) {
   }
   if (
     overview.subscription.status !== BillingStatus.ACTIVE &&
-    overview.subscription.status !== BillingStatus.TRIALING
+    (overview.subscription.status !== BillingStatus.TRIALING ||
+      overview.subscription.currentPeriodEnd === null ||
+      overview.subscription.currentPeriodEnd <= new Date())
   ) {
     throw new BillingAccessDeniedError(
       'SUBSCRIPTION_INACTIVE',

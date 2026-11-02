@@ -11,6 +11,7 @@ let validToken: string;
 let wrongIssuerToken: string;
 let wrongAudienceToken: string;
 let expiredToken: string;
+let tokenWithEmail: string;
 let verifier: JWTVerifyGetKey;
 
 function request(authorization?: string) {
@@ -40,6 +41,14 @@ beforeAll(async () => {
   const jwk = await exportJWK(publicKey);
   verifier = createLocalJWKSet({ keys: [{ ...jwk, kid: 'test-key', alg: 'ES256', use: 'sig' }] });
   validToken = await new SignJWT({ role: 'authenticated' })
+    .setProtectedHeader({ alg: 'ES256', kid: 'test-key' })
+    .setIssuer(ISSUER)
+    .setAudience('authenticated')
+    .setSubject(SUBJECT)
+    .setIssuedAt()
+    .setExpirationTime('5m')
+    .sign(privateKey);
+  tokenWithEmail = await new SignJWT({ role: 'authenticated', email: 'new-personal@example.test' })
     .setProtectedHeader({ alg: 'ES256', kid: 'test-key' })
     .setIssuer(ISSUER)
     .setAudience('authenticated')
@@ -162,6 +171,32 @@ describe('Supabase JWT authentication', () => {
 
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith({ error: 'Utilizador sem tenant ou vínculo de aluno ativo' });
+  });
+
+  it('only accepts an unmapped identity when onboarding is explicitly enabled and the token has an email', async () => {
+    const req = request(`Bearer ${tokenWithEmail}`) as Request & {
+      auth?: Record<string, unknown>;
+      tenantId?: string;
+    };
+    const next = makeNext();
+    await createSupabaseAuthMiddleware({
+      keyResolver: verifier,
+      issuer: ISSUER,
+      allowUnprovisioned: true,
+      lookupIdentity: async () => null,
+    })(req, response(), next.next);
+
+    expect(req.auth).toEqual({
+      userId: SUBJECT,
+      subject: SUBJECT,
+      role: 'PERSONAL',
+      tenantId: null,
+      personalId: null,
+      studentId: null,
+      email: 'new-personal@example.test',
+    });
+    expect(req.tenantId).toBeUndefined();
+    expect(next.wasCalled()).toBe(true);
   });
 
   it('maps a verified student to its own student id and personal tenant', async () => {
