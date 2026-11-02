@@ -79,6 +79,16 @@ enum WorkoutExecutionStatus {
   COMPLETED
 }
 
+enum WorkoutDay {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
 enum AppointmentStatus {
   SCHEDULED
   COMPLETED
@@ -288,6 +298,7 @@ model Appointment {
   id         String            @id @default(uuid())
   personalId String
   studentId  String
+  workoutId  String?
   title      String
   startsAt   DateTime
   endsAt     DateTime
@@ -298,28 +309,32 @@ model Appointment {
 
   personal Personal @relation(fields: [personalId], references: [id], onDelete: Restrict)
   student  Student  @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  workout  Workout? @relation(fields: [workoutId], references: [id], onDelete: SetNull)
 
   @@unique([id, personalId])
   @@index([personalId, startsAt, endsAt, status])
   @@index([studentId, startsAt])
+  @@index([workoutId])
   @@map("appointments")
 }
 
 model Workout {
-  id          String   @id @default(uuid())
-  personalId  String
-  studentId   String
-  title       String
-  description String?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String       @id @default(uuid())
+  personalId   String
+  studentId    String
+  title        String
+  description  String?
+  trainingDays WorkoutDay[] @default([])
+  active       Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
-  personal   Personal           @relation(fields: [personalId], references: [id], onDelete: Restrict)
-  student    Student            @relation(fields: [studentId], references: [id], onDelete: Restrict)
-  exercises  WorkoutExercise[]
-  executions WorkoutExecution[]
-  setLogs    WorkoutSetLog[]
+  personal     Personal           @relation(fields: [personalId], references: [id], onDelete: Restrict)
+  student      Student            @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  exercises    WorkoutExercise[]
+  executions   WorkoutExecution[]
+  setLogs      WorkoutSetLog[]
+  appointments Appointment[]
 
   @@unique([id, personalId])
   @@index([personalId, studentId, updatedAt])

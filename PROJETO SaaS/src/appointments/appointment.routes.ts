@@ -12,6 +12,7 @@ import {
 import {
   AppointmentTimeConflictError,
   TenantStudentUnavailableError,
+  TenantWorkoutUnavailableError,
 } from '../db/scoped-prisma';
 
 type AuthenticatedRequest = Request & { auth?: AuthContext; tenantId?: string };
@@ -35,6 +36,7 @@ function requirePersonal(req: AuthenticatedRequest, res: Response) {
 const dateTimeSchema = z.iso.datetime({ offset: true });
 const createAppointmentSchema = z.strictObject({
   studentId: z.string().trim().min(1).max(64),
+  workoutId: z.string().trim().min(1).max(64).nullable().optional(),
   title: z.string().trim().min(2).max(160),
   startsAt: dateTimeSchema,
   endsAt: dateTimeSchema,
@@ -50,6 +52,9 @@ function handleAppointmentError(error: unknown, res: Response, next: NextFunctio
     return res.status(409).json({ error: error.message, code: 'APPOINTMENT_TIME_CONFLICT' });
   }
   if (error instanceof TenantStudentUnavailableError) {
+    return res.status(404).json({ error: error.message });
+  }
+  if (error instanceof TenantWorkoutUnavailableError) {
     return res.status(404).json({ error: error.message });
   }
   if (error instanceof AppointmentRecordNotFoundError) {

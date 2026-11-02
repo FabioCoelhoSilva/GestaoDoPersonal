@@ -5,6 +5,7 @@ import { ApiError } from '@/lib/api/client';
 import {
   studentWorkoutService,
   type StudentRecord,
+  type WorkoutDay,
   type WorkoutExerciseInput,
   type WorkoutRecord,
 } from '@/lib/api/student-workout.service';
@@ -20,6 +21,15 @@ type ExerciseDraft = {
 };
 
 const emptyExercise = (): ExerciseDraft => ({ name: '', sets: '3', reps: '10', restSeconds: '60', gifUrl: '' });
+const workoutDays: { value: WorkoutDay; label: string }[] = [
+  { value: 'MONDAY', label: 'Seg' },
+  { value: 'TUESDAY', label: 'Ter' },
+  { value: 'WEDNESDAY', label: 'Qua' },
+  { value: 'THURSDAY', label: 'Qui' },
+  { value: 'FRIDAY', label: 'Sex' },
+  { value: 'SATURDAY', label: 'Sáb' },
+  { value: 'SUNDAY', label: 'Dom' },
+];
 
 export default function WorkoutsPage() {
   const { session, loading: authLoading } = useAuth();
@@ -28,6 +38,7 @@ export default function WorkoutsPage() {
   const [studentId, setStudentId] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [trainingDays, setTrainingDays] = useState<WorkoutDay[]>([]);
   const [exercises, setExercises] = useState<ExerciseDraft[]>([emptyExercise()]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -44,7 +55,7 @@ export default function WorkoutsPage() {
     if (studentsResult.status === 'fulfilled') {
       const allStudents = studentsResult.value;
       const activeStudents = allStudents.filter((student) => student.active);
-      setStudents(allStudents);
+      setStudents(activeStudents);
       setStudentId((current) => current || activeStudents[0]?.id || '');
     }
     if (workoutsResult.status === 'fulfilled') setWorkouts(workoutsResult.value);
@@ -89,11 +100,13 @@ export default function WorkoutsPage() {
         studentId,
         title: title.trim(),
         description: description.trim() || null,
+        trainingDays,
         exercises: payloadExercises,
       });
       setWorkouts((current) => [workout, ...current]);
       setTitle('');
       setDescription('');
+      setTrainingDays([]);
       setExercises([emptyExercise()]);
       setSuccess(`O treino “${workout.title}” foi criado com ${workout.exercises.length} exercício(s).`);
     } catch (reason) {
@@ -138,6 +151,26 @@ export default function WorkoutsPage() {
               <label htmlFor="workout-description">Descrição <span className="optional-label">opcional</span></label>
               <textarea id="workout-description" rows={2} value={description} onChange={(event) => setDescription(event.target.value)} maxLength={5000} placeholder="Objetivo ou instruções gerais" />
 
+              <fieldset className="training-days-fieldset">
+                <legend>Dias de treino <span className="optional-label">selecione pelo menos um</span></legend>
+                <div className="training-days-options">
+                  {workoutDays.map((day) => (
+                    <label className="training-day-option" key={day.value}>
+                      <input
+                        type="checkbox"
+                        checked={trainingDays.includes(day.value)}
+                        onChange={(event) => setTrainingDays((current) =>
+                          event.target.checked
+                            ? [...current, day.value]
+                            : current.filter((value) => value !== day.value),
+                        )}
+                      />
+                      <span>{day.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
               <div className="exercise-section-heading"><div><span className="panel-kicker">EXERCÍCIOS</span><strong>{exercises.length} no plano</strong></div><button type="button" className="text-button accent" onClick={() => setExercises((current) => [...current, emptyExercise()])}>+ Adicionar</button></div>
               <div className="exercise-draft-list">
                 {exercises.map((exercise, index) => (
@@ -156,7 +189,7 @@ export default function WorkoutsPage() {
                   </fieldset>
                 ))}
               </div>
-              <button className="button button-primary" disabled={saving || students.length === 0}>{saving ? 'A criar treino…' : 'Criar plano de treino'}</button>
+              <button className="button button-primary" disabled={saving || students.length === 0 || trainingDays.length === 0}>{saving ? 'A criar treino…' : 'Criar plano de treino'}</button>
             </form>
           )}
         </section>
@@ -175,6 +208,11 @@ export default function WorkoutsPage() {
                       <span className={`status-pill ${workout.active ? 'active' : 'inactive'}`}>{workout.active ? 'Ativo' : 'Arquivado'}</span>
                     </div>
                     {workout.description && <p className="workout-description">{workout.description}</p>}
+                    {workout.trainingDays.length > 0 && (
+                      <div className="workout-training-days" aria-label="Dias de treino">
+                        {workoutDays.filter((day) => workout.trainingDays.includes(day.value)).map((day) => <span key={day.value}>{day.label}</span>)}
+                      </div>
+                    )}
                     <div className="workout-exercise-list">
                       {workout.exercises.map((exercise) => (
                         <div className="workout-exercise" key={exercise.id}>

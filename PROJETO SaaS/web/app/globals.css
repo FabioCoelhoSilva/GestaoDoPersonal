@@ -719,6 +719,17 @@ body {
 .inline-edit-form { display: grid; width: 100%; gap: 8px; }
 .inline-edit-form .row-actions { justify-content: flex-end; }
 .workout-layout { grid-template-columns: minmax(300px, .85fr) minmax(0, 1.35fr); }
+.training-days-fieldset { display: grid; gap: 9px; margin: 4px 0; padding: 11px; border: 1px solid rgba(255,255,255,.08); border-radius: 9px; }
+.training-days-fieldset legend { padding: 0 5px; color: #c4c4ca; font-size: 10px; font-weight: 600; }
+.training-days-options { display: flex; flex-wrap: wrap; gap: 7px; }
+.training-day-option { position: relative; }
+.training-day-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.training-day-option span { display: grid; min-width: 37px; min-height: 32px; place-items: center; padding: 0 7px; border: 1px solid rgba(255,255,255,.09); border-radius: 8px; background: rgba(9,9,11,.4); color: #a1a1aa; cursor: pointer; font-size: 9px; }
+.training-day-option input:checked + span { border-color: rgba(163,230,53,.28); background: rgba(163,230,53,.1); color: #d9f99d; }
+.training-day-option input:focus-visible + span { outline: 2px solid #a3e635; outline-offset: 2px; }
+.workout-training-days { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+.workout-training-days span { padding: 4px 7px; border: 1px solid rgba(163,230,53,.13); border-radius: 14px; background: rgba(163,230,53,.055); color: #d9f99d; font-size: 8px; }
+.appointment-workout { color: #d9f99d !important; }
 .workout-form-panel { max-height: calc(100vh - 128px); overflow-y: auto; scrollbar-color: #3f3f46 transparent; scrollbar-width: thin; }
 .exercise-section-heading { display: flex; align-items: center; justify-content: space-between; margin: 8px 0 2px; }
 .exercise-section-heading > div { display: grid; gap: 4px; }

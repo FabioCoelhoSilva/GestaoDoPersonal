@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS "appointments" (
   "id" TEXT NOT NULL,
   "personalId" TEXT NOT NULL,
   "studentId" TEXT NOT NULL,
+  "workoutId" TEXT,
   "title" TEXT NOT NULL,
   "startsAt" TIMESTAMP(3) NOT NULL,
   "endsAt" TIMESTAMP(3) NOT NULL,
@@ -19,6 +20,9 @@ CREATE TABLE IF NOT EXISTS "appointments" (
   "updatedAt" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "appointments_pkey" PRIMARY KEY ("id")
 );
+
+ALTER TABLE "appointments"
+  ADD COLUMN IF NOT EXISTS "workoutId" TEXT;
 
 DO $$
 BEGIN
@@ -54,6 +58,17 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint
     WHERE conrelid = '"appointments"'::regclass
+      AND conname = 'appointments_workoutId_fkey'
+  ) THEN
+    ALTER TABLE "appointments"
+      ADD CONSTRAINT "appointments_workoutId_fkey"
+      FOREIGN KEY ("workoutId") REFERENCES "workouts" ("id")
+      ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = '"appointments"'::regclass
       AND conname = 'appointments_time_order_check'
   ) THEN
     ALTER TABLE "appointments"
@@ -67,6 +82,8 @@ CREATE INDEX IF NOT EXISTS "appointments_personalId_startsAt_endsAt_status_idx"
   ON "appointments" ("personalId", "startsAt", "endsAt", "status");
 CREATE INDEX IF NOT EXISTS "appointments_studentId_startsAt_idx"
   ON "appointments" ("studentId", "startsAt");
+CREATE INDEX IF NOT EXISTS "appointments_workoutId_idx"
+  ON "appointments" ("workoutId");
 
 CREATE OR REPLACE FUNCTION appointments_prevent_overlap()
 RETURNS trigger AS $$

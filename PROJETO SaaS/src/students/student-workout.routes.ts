@@ -84,7 +84,7 @@ const service: StudentWorkoutService = {
 
 const studentBodySchema = z.strictObject({
   name: z.string().trim().min(1).max(200),
-  email: z.email().max(320),
+  email: z.string().trim().email().max(320),
 });
 
 const exerciseSchema = z.strictObject({
@@ -104,6 +104,15 @@ const workoutBodySchema = z.strictObject({
   studentId: z.string().trim().min(1).max(64),
   title: z.string().trim().min(1).max(200),
   description: z.string().trim().max(5000).nullable().optional(),
+  trainingDays: z.array(z.enum([
+    'MONDAY',
+    'TUESDAY',
+    'WEDNESDAY',
+    'THURSDAY',
+    'FRIDAY',
+    'SATURDAY',
+    'SUNDAY',
+  ])).min(1).max(7).refine((days) => new Set(days).size === days.length, 'Dias de treino duplicados').optional(),
   active: z.boolean().optional(),
   exercises: z.array(exerciseSchema).min(1),
 });

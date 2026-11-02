@@ -1,6 +1,17 @@
 import { scopedPrisma } from '../db/scoped-prisma';
 import { assertPlanCapacity } from '../billing/subscription.service';
 
+const WORKOUT_DAYS = [
+  'MONDAY',
+  'TUESDAY',
+  'WEDNESDAY',
+  'THURSDAY',
+  'FRIDAY',
+  'SATURDAY',
+  'SUNDAY',
+] as const;
+type WorkoutDay = (typeof WORKOUT_DAYS)[number];
+
 export type CreateStudentData = {
   name: string;
   email: string;
@@ -22,6 +33,7 @@ export type CreateWorkoutPlanData = {
   studentId: string;
   title: string;
   description?: string | null;
+  trainingDays?: WorkoutDay[];
   active?: boolean;
   exercises: WorkoutExerciseInput[];
 };
@@ -312,7 +324,7 @@ function validateWorkoutPlanData(data: CreateWorkoutPlanData) {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     throw new StudentWorkoutValidationError('Dados do plano de treino inválidos');
   }
-  const allowedFields = new Set(['studentId', 'title', 'description', 'active', 'exercises']);
+  const allowedFields = new Set(['studentId', 'title', 'description', 'trainingDays', 'active', 'exercises']);
   const unknownFields = Object.keys(data).filter((field) => !allowedFields.has(field));
   if (unknownFields.length > 0) {
     throw new StudentWorkoutValidationError(`Campos não permitidos para plano: ${unknownFields.join(', ')}`);
@@ -321,6 +333,14 @@ function validateWorkoutPlanData(data: CreateWorkoutPlanData) {
   const studentId = requireText(data.studentId, 'studentId', 64);
   const title = requireText(data.title, 'title', 200);
   const description = optionalText(data.description, 'description', 5000);
+  const trainingDays = data.trainingDays ?? [];
+  if (
+    !Array.isArray(trainingDays) ||
+    trainingDays.some((day) => !WORKOUT_DAYS.includes(day)) ||
+    new Set(trainingDays).size !== trainingDays.length
+  ) {
+    throw new StudentWorkoutValidationError('trainingDays deve conter dias da semana válidos e sem repetição');
+  }
   if (data.active !== undefined && typeof data.active !== 'boolean') {
     throw new StudentWorkoutValidationError('active deve ser boolean');
   }
@@ -341,6 +361,7 @@ function validateWorkoutPlanData(data: CreateWorkoutPlanData) {
     studentId,
     title,
     ...(description !== undefined ? { description } : {}),
+    trainingDays,
     ...(data.active !== undefined ? { active: data.active } : {}),
     exercises,
   };
@@ -504,7 +525,7 @@ export async function createWorkoutPlan(tenantId: string, data: CreateWorkoutPla
   const db = scopedPrisma(tenant);
 
   const student = await db.student.findFirst({
-    where: { id: planData.studentId },
+    where: { id: planData.studentId, active: true, anonymizedAt: null },
     select: { id: true },
   });
   if (!student) throw new TenantStudentNotFoundError();
@@ -514,6 +535,7 @@ export async function createWorkoutPlan(tenantId: string, data: CreateWorkoutPla
     data: {
       title: planData.title,
       ...(planData.description !== undefined ? { description: planData.description } : {}),
+      trainingDays: planData.trainingDays,
       ...(planData.active !== undefined ? { active: planData.active } : {}),
       personal: { connect: { id: tenant } },
       student: { connect: { id: student.id } },

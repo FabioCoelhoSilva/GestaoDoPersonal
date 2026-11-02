@@ -530,6 +530,13 @@ export class TenantStudentUnavailableError extends Error {
   }
 }
 
+export class TenantWorkoutUnavailableError extends Error {
+  constructor() {
+    super('O plano de treino não existe, está inativo ou não pertence ao aluno e tenant autenticados');
+    this.name = 'TenantWorkoutUnavailableError';
+  }
+}
+
 export class AppointmentTimeConflictError extends Error {
   constructor() {
     super('O horário escolhido conflita com outra aula agendada');
@@ -588,6 +595,7 @@ export async function createMonthlyContractWithParcels(input: {
 export async function createTenantAppointment(input: {
   personalId: string;
   studentId: string;
+  workoutId?: string | null;
   title: string;
   startsAt: Date;
   endsAt: Date;
@@ -601,6 +609,18 @@ export async function createTenantAppointment(input: {
       select: { id: true },
     });
     if (!student) throw new TenantStudentUnavailableError();
+
+    if (input.workoutId) {
+      const workout = await tx.workout.findFirst({
+        where: {
+          id: input.workoutId,
+          studentId: student.id,
+          active: true,
+        },
+        select: { id: true },
+      });
+      if (!workout) throw new TenantWorkoutUnavailableError();
+    }
 
     const conflict = await tx.appointment.findFirst({
       where: {
@@ -617,13 +637,17 @@ export async function createTenantAppointment(input: {
       data: {
         personalId: input.personalId,
         studentId: student.id,
+        workoutId: input.workoutId ?? null,
         title: input.title,
         startsAt: input.startsAt,
         endsAt: input.endsAt,
         notes: input.notes,
         status: 'SCHEDULED',
       },
-      include: { student: { select: { id: true, name: true, email: true, active: true } } },
+      include: {
+        student: { select: { id: true, name: true, email: true, active: true } },
+        workout: { select: { id: true, title: true } },
+      },
     });
   });
 }

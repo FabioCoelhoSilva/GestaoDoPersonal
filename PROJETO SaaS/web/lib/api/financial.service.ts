@@ -28,16 +28,19 @@ export type MonthlyContractInput = {
 
 export type AppointmentRecord = {
   id: string;
+  workoutId: string | null;
   title: string;
   startsAt: string;
   endsAt: string;
   notes: string | null;
   status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
   student: Pick<StudentRecord, 'id' | 'name' | 'email' | 'active'>;
+  workout: { id: string; title: string } | null;
 };
 
 export type AppointmentInput = {
   studentId: string;
+  workoutId?: string | null;
   title: string;
   startsAt: string;
   endsAt: string;

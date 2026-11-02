@@ -1,5 +1,6 @@
 .env.test
 .env.test.local
+/.env
 /web/node_modules
 /web/.next
 /web/.env.local

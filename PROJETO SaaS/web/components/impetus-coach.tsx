@@ -11,7 +11,7 @@ function getDestination(message: string) {
     return { label: 'Abrir alunos', href: '/dashboard/students' };
   }
   if (/trein|exerc|hipertrof|força|forca|plano/.test(text)) {
-    return { label: 'Abrir treinos', href: '/dashboard/workouts' };
+    return { label: 'Abrir treinos', href: '/treinos' };
   }
   if (/subscri|assinatura|pagamento|billing|fatura/.test(text)) {
     return { label: 'Ver subscrição', href: '/dashboard#billing' };

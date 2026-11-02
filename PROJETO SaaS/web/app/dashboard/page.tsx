@@ -39,6 +39,11 @@ export default function DashboardPage() {
   const [billingError, setBillingError] = useState<string | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
+  const [onboardingPending, setOnboardingPending] = useState(false);
+
+  useEffect(() => {
+    setOnboardingPending(new URLSearchParams(window.location.search).get('onboarding') === 'pending');
+  }, []);
 
   const loadDashboard = useCallback(async () => {
     const [metricsResult, billingResult] = await Promise.allSettled([
@@ -111,9 +116,9 @@ export default function DashboardPage() {
         <nav className="side-nav" aria-label="Menu principal">
           <a className="side-link active" href="#overview"><span aria-hidden="true">◫</span> Visão geral</a>
           <Link className="side-link" href="/dashboard/students"><span aria-hidden="true">♙</span> Alunos</Link>
-          <Link className="side-link" href="/dashboard/workouts"><span aria-hidden="true">▤</span> Treinos</Link>
+          <Link className="side-link" href="/treinos"><span aria-hidden="true">▤</span> Treinos</Link>
           <Link className="side-link" href="/dashboard/payments"><span aria-hidden="true">◇</span> Pagamentos</Link>
-          <Link className="side-link" href="/dashboard/appointments"><span aria-hidden="true">◷</span> Agenda</Link>
+          <Link className="side-link" href="/agenda"><span aria-hidden="true">◷</span> Agenda</Link>
         </nav>
         <div className="sidebar-bottom">
           <div className="user-avatar" aria-hidden="true">{displayName.slice(0, 1).toUpperCase()}</div>
@@ -140,6 +145,12 @@ export default function DashboardPage() {
           <div className="alert alert-warning" role="alert">
             <strong>Não foi possível validar o acesso ao espaço</strong>
             <p>{metricsError?.message} Confirme que o seu perfil de personal foi provisionado ou contacte o suporte.</p>
+          </div>
+        )}
+        {onboardingPending && !accountNotProvisioned && (
+          <div className="alert alert-warning" role="alert">
+            <strong>Sessão iniciada; ativação do espaço pendente</strong>
+            <p>Entrou no painel, mas a API não concluiu o provisionamento. Algumas funcionalidades podem ficar indisponíveis até o backend estar configurado e acessível.</p>
           </div>
         )}
         {subscriptionDenied && (
@@ -215,7 +226,7 @@ export default function DashboardPage() {
               <h3>Planos de treino</h3>
               <p>Estruture os próximos objetivos de treino dos seus alunos.</p>
             </div>
-            <Link className="workspace-card-link" href="/dashboard/workouts">Montar treino ↗</Link>
+            <Link className="workspace-card-link" href="/treinos">Montar treino ↗</Link>
           </section>
           <section className="workspace-card billing-card" id="billing">
             <div className="workspace-card-icon amber" aria-hidden="true">◇</div>
@@ -242,7 +253,7 @@ export default function DashboardPage() {
               <h3>Agenda de aulas</h3>
               <p>Marque sessões avulsas e evite conflitos de horário automaticamente.</p>
             </div>
-            <Link className="workspace-card-link" href="/dashboard/appointments">Abrir agenda ↗</Link>
+            <Link className="workspace-card-link" href="/agenda">Abrir agenda ↗</Link>
           </section>
         </div>
         <footer className="dashboard-footer">Impetus: A evolução que não para<span>Feito para acompanhar o seu progresso.</span></footer>

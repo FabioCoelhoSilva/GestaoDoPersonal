@@ -3,6 +3,7 @@ import {
   createTenantAppointment,
   scopedPrisma,
   TenantStudentUnavailableError,
+  TenantWorkoutUnavailableError,
 } from '../db/scoped-prisma';
 
 export class AppointmentValidationError extends Error {
@@ -28,6 +29,7 @@ export class AppointmentStateConflictError extends Error {
 
 export type CreateAppointmentInput = {
   studentId: string;
+  workoutId?: string | null;
   title: string;
   startsAt: string;
   endsAt: string;
@@ -55,7 +57,10 @@ export async function listAppointments(tenantId: string, from: string, to: strin
   return scopedPrisma(tenant).appointment.findMany({
     where: { startsAt: { lt: endsAt }, endsAt: { gt: startsAt } },
     orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
-    include: { student: { select: { id: true, name: true, email: true, active: true } } },
+    include: {
+      student: { select: { id: true, name: true, email: true, active: true } },
+      workout: { select: { id: true, title: true } },
+    },
   });
 }
 
@@ -64,6 +69,10 @@ export async function createAppointment(tenantId: string, input: CreateAppointme
   if (!input || typeof input !== 'object') throw new AppointmentValidationError('Dados da aula inválidos');
   if (typeof input.studentId !== 'string' || input.studentId.trim().length === 0) {
     throw new AppointmentValidationError('studentId é obrigatório');
+  }
+  if (input.workoutId !== undefined && input.workoutId !== null &&
+      (typeof input.workoutId !== 'string' || input.workoutId.trim().length === 0)) {
+    throw new AppointmentValidationError('workoutId inválido');
   }
   if (typeof input.title !== 'string' || input.title.trim().length < 2 || input.title.trim().length > 160) {
     throw new AppointmentValidationError('title deve ter entre 2 e 160 caracteres');
@@ -84,6 +93,7 @@ export async function createAppointment(tenantId: string, input: CreateAppointme
   return createTenantAppointment({
     personalId: tenant,
     studentId: input.studentId.trim(),
+    workoutId: input.workoutId?.trim() || null,
     title: input.title.trim(),
     startsAt,
     endsAt,
@@ -105,8 +115,11 @@ export async function updateAppointmentStatus(
   return db.appointment.update({
     where: { id: appointment.id },
     data: { status },
-    include: { student: { select: { id: true, name: true, email: true, active: true } } },
+    include: {
+      student: { select: { id: true, name: true, email: true, active: true } },
+      workout: { select: { id: true, title: true } },
+    },
   });
 }
 
-export { AppointmentTimeConflictError, TenantStudentUnavailableError };
+export { AppointmentTimeConflictError, TenantStudentUnavailableError, TenantWorkoutUnavailableError };

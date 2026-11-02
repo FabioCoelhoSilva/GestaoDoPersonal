@@ -43,13 +43,8 @@ export default function RegisterPage() {
       await provisionPersonal(email);
       router.replace('/dashboard');
     } catch (error) {
-      setSubmitting(false);
-      setErrorMessage(
-        error instanceof Error
-          ? `A conta foi criada, mas não foi possível ativar o espaço: ${error.message}`
-          : 'A conta foi criada, mas não foi possível ativar o espaço. Tente iniciar sessão novamente.',
-      );
-      return;
+      console.error('Não foi possível provisionar o espaço após o signup.', error);
+      router.replace('/dashboard?onboarding=pending');
     }
     setSubmitting(false);
     setPassword('');

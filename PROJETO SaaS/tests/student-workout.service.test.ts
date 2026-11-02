@@ -82,7 +82,7 @@ describe('student-workout service', () => {
       }),
     ).rejects.toBeInstanceOf(TenantStudentNotFoundError);
     expect(studentFindFirst).toHaveBeenCalledWith({
-      where: { id: 'student-from-another-tenant' },
+      where: { id: 'student-from-another-tenant', active: true, anonymizedAt: null },
       select: { id: true },
     });
     expect(workoutCreate).not.toHaveBeenCalled();
@@ -97,6 +97,7 @@ describe('student-workout service', () => {
       createWorkoutPlan('tenant-1', {
         studentId: 'student-1',
         title: 'Plano A',
+        trainingDays: ['MONDAY', 'THURSDAY'],
         exercises: [{
           name: ' Agachamento ',
           gifUrl: 'https://cdn.example.com/exercises/squat.gif',
@@ -112,6 +113,7 @@ describe('student-workout service', () => {
     expect(workoutCreate).toHaveBeenCalledWith({
       data: {
         title: 'Plano A',
+        trainingDays: ['MONDAY', 'THURSDAY'],
         personal: { connect: { id: 'tenant-1' } },
         student: { connect: { id: 'student-1' } },
         exercises: {

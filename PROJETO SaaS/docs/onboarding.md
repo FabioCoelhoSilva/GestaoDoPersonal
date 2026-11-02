@@ -6,9 +6,13 @@ O backend cria atomicamente o utilizador `PERSONAL`, o registo `Personal` (tenan
 
 Configure no ambiente do backend:
 
+- `SUPABASE_URL`: URL HTTPS do projeto Supabase; usada para validar issuer e chaves JWT.
+- `DATABASE_URL` e `DIRECT_URL`: strings de ligação PostgreSQL do Supabase. Consulte `Supabase > Connect`; `DIRECT_URL` deve ser a ligação direta usada pelo Prisma CLI. O ficheiro `.env.example` contém apenas o formato ilustrativo.
 - `ONBOARDING_TRIAL_PLAN_ID`: ID de um plano existente e ativo na tabela `plans`.
 - `ONBOARDING_TRIAL_DAYS`: duração em dias, de 1 a 90; padrão `14`.
 
 Sem um plano ativo configurado, o endpoint falha com `503` sem criar registos. O acesso de avaliação é bloqueado depois de `currentPeriodEnd`; renovar ou converter a subscrição deve ser feito pelo fluxo de billing.
 
-O frontend provisiona imediatamente quando o signup já devolve uma sessão. Se a confirmação de email estiver ativada e não houver sessão, o utilizador confirma o email e, no login seguinte, a aplicação tenta o provisionamento antes de abrir o dashboard.
+Copie `.env.example` para `.env` e substitua os valores ilustrativos pelas configurações do seu projeto. Nunca versione `.env` nem partilhe strings PostgreSQL, chaves secretas ou tokens.
+
+O frontend tenta provisionar imediatamente quando o signup já devolve uma sessão. Se a confirmação de email estiver ativada e não houver sessão, o utilizador confirma o email e, no login seguinte, a aplicação tenta o provisionamento. A autenticação não fica bloqueada por falhas nessa chamada: o utilizador entra no dashboard, que indica que o provisionamento está pendente. Enquanto o backend não criar o perfil e o tenant, as operações que exigem esses recursos podem continuar indisponíveis.

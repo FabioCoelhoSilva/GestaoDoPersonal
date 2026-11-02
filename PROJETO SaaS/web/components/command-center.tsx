@@ -14,7 +14,7 @@ const destinations = [
   {
     title: 'Treinos',
     description: 'Abrir os planos de treino',
-    href: '/dashboard/workouts',
+    href: '/treinos',
     keywords: ['treino', 'treinos', 'plano', 'exercício', 'exercicios', 'hipertrofia', 'criar'],
     icon: '▤',
   },
@@ -35,7 +35,7 @@ const destinations = [
   {
     title: 'Agenda',
     description: 'Agendar e acompanhar aulas',
-    href: '/dashboard/appointments',
+    href: '/agenda',
     keywords: ['agenda', 'aula', 'aulas', 'sessão', 'sessões', 'horário', 'marcar'],
     icon: '◷',
   },

@@ -29,12 +29,8 @@ export default function LoginPage() {
       await provisionPersonal(email);
       router.replace('/dashboard');
     } catch (provisionError) {
-      setSubmitting(false);
-      setErrorMessage(
-        provisionError instanceof Error
-          ? `Sessão iniciada, mas não foi possível ativar o espaço: ${provisionError.message}`
-          : 'Sessão iniciada, mas não foi possível ativar o espaço. Tente novamente.',
-      );
+      console.error('Não foi possível provisionar o espaço após o login.', provisionError);
+      router.replace('/dashboard?onboarding=pending');
     }
   }
 

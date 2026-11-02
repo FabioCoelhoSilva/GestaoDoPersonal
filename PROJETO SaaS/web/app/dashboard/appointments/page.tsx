@@ -2,7 +2,11 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { financialService, type AppointmentRecord } from '@/lib/api/financial.service';
-import { studentWorkoutService, type StudentRecord } from '@/lib/api/student-workout.service';
+import {
+  studentWorkoutService,
+  type StudentRecord,
+  type WorkoutRecord,
+} from '@/lib/api/student-workout.service';
 import { WorkspaceShell } from '@/components/workspace-shell';
 import { useAuth } from '@/lib/auth/auth-provider';
 
@@ -17,8 +21,10 @@ function displayDate(value: string) {
 export default function AppointmentsPage() {
   const { session, loading: authLoading } = useAuth();
   const [students, setStudents] = useState<StudentRecord[]>([]);
+  const [workouts, setWorkouts] = useState<WorkoutRecord[]>([]);
   const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
   const [studentId, setStudentId] = useState('');
+  const [workoutId, setWorkoutId] = useState('');
   const [title, setTitle] = useState('');
   const [startsAt, setStartsAt] = useState(() => localDateTime(new Date(Date.now() + 60 * 60 * 1000)));
   const [endsAt, setEndsAt] = useState(() => localDateTime(new Date(Date.now() + 2 * 60 * 60 * 1000)));
@@ -35,8 +41,9 @@ export default function AppointmentsPage() {
     from.setDate(from.getDate() - 30);
     const to = new Date();
     to.setDate(to.getDate() + 90);
-    const [studentsResult, appointmentsResult] = await Promise.allSettled([
+    const [studentsResult, workoutsResult, appointmentsResult] = await Promise.allSettled([
       studentWorkoutService.listStudents(),
+      studentWorkoutService.listWorkouts(),
       financialService.listAppointments(from, to),
     ]);
     if (studentsResult.status === 'fulfilled') {
@@ -44,8 +51,12 @@ export default function AppointmentsPage() {
       setStudents(activeStudents);
       setStudentId((current) => current || activeStudents[0]?.id || '');
     }
+    if (workoutsResult.status === 'fulfilled') {
+      const activeWorkouts = workoutsResult.value.filter((workout) => workout.active);
+      setWorkouts(activeWorkouts);
+    }
     if (appointmentsResult.status === 'fulfilled') setAppointments(appointmentsResult.value);
-    const failure = [studentsResult, appointmentsResult].find((result) => result.status === 'rejected');
+    const failure = [studentsResult, workoutsResult, appointmentsResult].find((result) => result.status === 'rejected');
     if (failure?.status === 'rejected') {
       setError(failure.reason instanceof Error ? failure.reason.message : 'Não foi possível carregar a agenda.');
     } else {
@@ -66,6 +77,7 @@ export default function AppointmentsPage() {
     try {
       const created = await financialService.createAppointment({
         studentId,
+        ...(workoutId ? { workoutId } : {}),
         title: title.trim(),
         startsAt: new Date(startsAt).toISOString(),
         endsAt: new Date(endsAt).toISOString(),
@@ -74,6 +86,7 @@ export default function AppointmentsPage() {
       setAppointments((current) => [...current, created].sort((a, b) => a.startsAt.localeCompare(b.startsAt)));
       setTitle('');
       setNotes('');
+      setWorkoutId('');
       setSuccess('Aula agendada. Os conflitos de horário são validados automaticamente.');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Não foi possível agendar a aula.');
@@ -109,8 +122,28 @@ export default function AppointmentsPage() {
           ) : (
             <form className="workspace-form" onSubmit={createAppointment}>
               <label htmlFor="appointment-student">Aluno</label>
-              <select id="appointment-student" value={studentId} onChange={(event) => setStudentId(event.target.value)} required>
+              <select
+                id="appointment-student"
+                value={studentId}
+                onChange={(event) => {
+                  setStudentId(event.target.value);
+                  setWorkoutId('');
+                }}
+                required
+              >
                 {students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}
+              </select>
+              <label htmlFor="appointment-workout">Plano de treino <span className="optional-label">opcional</span></label>
+              <select
+                id="appointment-workout"
+                value={workoutId}
+                onChange={(event) => setWorkoutId(event.target.value)}
+                disabled={!workouts.some((workout) => workout.studentId === studentId)}
+              >
+                <option value="">Sessão sem plano associado</option>
+                {workouts
+                  .filter((workout) => workout.studentId === studentId)
+                  .map((workout) => <option key={workout.id} value={workout.id}>{workout.title}</option>)}
               </select>
               <label htmlFor="appointment-title">Tipo de aula</label>
               <input id="appointment-title" value={title} onChange={(event) => setTitle(event.target.value)} minLength={2} maxLength={160} placeholder="Ex.: Avaliação física" required />
@@ -136,6 +169,7 @@ export default function AppointmentsPage() {
                   <div className="appointment-info">
                     <strong>{appointment.title}</strong>
                     <span>{appointment.student.name}</span>
+                    {appointment.workout && <span className="appointment-workout">Treino: {appointment.workout.title}</span>}
                     <small>{displayDate(appointment.startsAt)} – {new Intl.DateTimeFormat('pt-PT', { timeStyle: 'short' }).format(new Date(appointment.endsAt))}</small>
                     {appointment.notes && <p>{appointment.notes}</p>}
                   </div>

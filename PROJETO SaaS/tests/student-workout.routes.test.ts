@@ -103,6 +103,38 @@ describe('student and workout routes', () => {
     expect(createStudent).not.toHaveBeenCalled();
   });
 
+  it('requires a non-empty name and a valid email before creating a student', async () => {
+    for (const body of [
+      { name: '   ', email: 'ana@example.com' },
+      { name: 'Ana', email: '   ' },
+      { name: 'Ana', email: 'invalid-email' },
+    ]) {
+      const response = await fetch(`${baseUrl}/api/students`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      expect(response.status).toBe(400);
+    }
+
+    expect(createStudent).not.toHaveBeenCalled();
+  });
+
+  it('trims the email before creating the student in the authenticated tenant', async () => {
+    const response = await fetch(`${baseUrl}/api/students`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: ' Ana ', email: ' ana@example.com ' }),
+    });
+
+    expect(response.status).toBe(201);
+    expect(createStudent).toHaveBeenCalledWith('tenant-from-auth', {
+      name: 'Ana',
+      email: 'ana@example.com',
+    });
+  });
+
   it('lists students for the authenticated tenant only', async () => {
     const response = await fetch(`${baseUrl}/api/students`);
 
@@ -152,6 +184,45 @@ describe('student and workout routes', () => {
       'tenant-from-auth',
       expect.objectContaining({ studentId: 'student-1' }),
     );
+  });
+
+  it('accepts selected training days and associates them through the authenticated tenant', async () => {
+    const trainingDays = ['MONDAY', 'THURSDAY'];
+    const response = await fetch(`${baseUrl}/api/workouts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        studentId: 'student-1',
+        title: 'Plano semanal',
+        trainingDays,
+        exercises: [{ name: 'Agachamento', sets: 3, reps: '8-12', order: 0 }],
+      }),
+    });
+
+    expect(response.status).toBe(201);
+    expect(createWorkoutPlan).toHaveBeenCalledWith(
+      'tenant-from-auth',
+      expect.objectContaining({ studentId: 'student-1', trainingDays }),
+    );
+  });
+
+  it('rejects empty or repeated workout days', async () => {
+    for (const trainingDays of [[], ['MONDAY', 'MONDAY']]) {
+      const response = await fetch(`${baseUrl}/api/workouts`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          studentId: 'student-1',
+          title: 'Plano semanal',
+          trainingDays,
+          exercises: [{ name: 'Agachamento', sets: 3, reps: '8-12', order: 0 }],
+        }),
+      });
+
+      expect(response.status).toBe(400);
+    }
+
+    expect(createWorkoutPlan).not.toHaveBeenCalled();
   });
 
   it('maps tenant mismatch to 403 and service validation to 400', async () => {

@@ -22,6 +22,15 @@ export type WorkoutExerciseInput = {
   notes?: string | null;
 };
 
+export type WorkoutDay =
+  | 'MONDAY'
+  | 'TUESDAY'
+  | 'WEDNESDAY'
+  | 'THURSDAY'
+  | 'FRIDAY'
+  | 'SATURDAY'
+  | 'SUNDAY';
+
 export type WorkoutExerciseRecord = WorkoutExerciseInput & {
   id: string;
   workoutId: string;
@@ -36,6 +45,7 @@ export type WorkoutRecord = {
   personalId: string;
   title: string;
   description: string | null;
+  trainingDays: WorkoutDay[];
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -46,6 +56,7 @@ export type WorkoutInput = {
   studentId: string;
   title: string;
   description?: string | null;
+  trainingDays: WorkoutDay[];
   exercises: WorkoutExerciseInput[];
 };
 

@@ -15,6 +15,8 @@ const tenantA = `tenant-a-${suffix}`;
 const tenantB = `tenant-b-${suffix}`;
 let studentAId: string;
 let studentBId: string;
+let workoutAId: string;
+let workoutBId: string;
 let server: Server;
 let baseUrl: string;
 
@@ -75,13 +77,18 @@ async function createTenant(id: string) {
   const student = await prisma.student.create({
     data: { personalId: personal.id, name: id, email: `${id}-student@example.test` },
   });
-  return { personal, plan, student };
+  const workout = await prisma.workout.create({
+    data: { personalId: personal.id, studentId: student.id, title: `Workout ${id}` },
+  });
+  return { personal, plan, student, workout };
 }
 
 beforeAll(async () => {
   const [a, b] = await Promise.all([createTenant(tenantA), createTenant(tenantB)]);
   studentAId = a.student.id;
   studentBId = b.student.id;
+  workoutAId = a.workout.id;
+  workoutBId = b.workout.id;
 
   server = createApp(authForTest()).listen(0);
   await once(server, 'listening');
@@ -95,6 +102,7 @@ afterAll(async () => {
     server.close((error) => (error ? reject(error) : resolve()));
   });
   await prisma.appointment.deleteMany({ where: { personalId: { in: [tenantA, tenantB] } } });
+  await prisma.workout.deleteMany({ where: { personalId: { in: [tenantA, tenantB] } } });
   await prisma.paymentParcel.deleteMany({ where: { personalId: { in: [tenantA, tenantB] } } });
   await prisma.contract.deleteMany({ where: { personalId: { in: [tenantA, tenantB] } } });
   await prisma.billingSubscription.deleteMany({ where: { personalId: { in: [tenantA, tenantB] } } });
@@ -160,10 +168,25 @@ describe('appointments routes', () => {
     };
     const createdResponse = await request('appointments', tenantA, {
       method: 'POST',
-      body: JSON.stringify({ ...appointment, studentId: studentAId }),
+      body: JSON.stringify({ ...appointment, studentId: studentAId, workoutId: workoutAId }),
     });
     expect(createdResponse.status).toBe(201);
-    const created = (await createdResponse.json() as { data: { id: string } }).data;
+    const created = (await createdResponse.json() as {
+      data: { id: string; workout: { id: string; title: string } };
+    }).data;
+    expect(created.workout).toEqual({ id: workoutAId, title: `Workout ${tenantA}` });
+
+    const foreignWorkout = await request('appointments', tenantA, {
+      method: 'POST',
+      body: JSON.stringify({
+        ...appointment,
+        studentId: studentAId,
+        workoutId: workoutBId,
+        startsAt: new Date(startsAt.getTime() + 2 * 60 * 60 * 1000).toISOString(),
+        endsAt: new Date(endsAt.getTime() + 2 * 60 * 60 * 1000).toISOString(),
+      }),
+    });
+    expect(foreignWorkout.status).toBe(404);
 
     const conflict = await request('appointments', tenantA, {
       method: 'POST',
@@ -188,7 +211,11 @@ describe('appointments routes', () => {
       request(`appointments?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
       request(`appointments?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, tenantB),
     ]);
-    expect((await aList.json() as { data: Array<{ id: string }> }).data.map(({ id }) => id)).toEqual([created.id]);
+    const appointmentsForA = (await aList.json() as {
+      data: Array<{ id: string; workout: { id: string; title: string } | null }>;
+    }).data;
+    expect(appointmentsForA.map(({ id }) => id)).toEqual([created.id]);
+    expect(appointmentsForA[0].workout).toEqual({ id: workoutAId, title: `Workout ${tenantA}` });
     expect((await bList.json() as { data: Array<{ id: string }> }).data).toHaveLength(1);
 
     const completed = await request(`appointments/${created.id}/status`, tenantA, {
