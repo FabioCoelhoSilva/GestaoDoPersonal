@@ -13,6 +13,8 @@ import { subscriptionRouter } from './billing/subscription.routes';
 import { subscriptionAccessMiddleware } from './billing/subscription.middleware';
 import { apiErrorHandler } from './middleware/api-error-handler';
 import { onboardingRouter } from './onboarding/onboarding.routes';
+import { paymentRouter } from './payments/payment.routes';
+import { appointmentRouter } from './appointments/appointment.routes';
 
 const onboardingAuthMiddleware = createSupabaseAuthMiddleware({ allowUnprovisioned: true });
 
@@ -41,12 +43,21 @@ export function createApp(
   app.use('/api', authMiddleware);
   app.use('/api/billing', subscriptionRouter);
   app.use(
-    ['/api/students', '/api/workouts', '/api/workout-exercises', '/api/workout-executions'],
+    [
+      '/api/students',
+      '/api/workouts',
+      '/api/workout-exercises',
+      '/api/workout-executions',
+      '/api/payments',
+      '/api/appointments',
+    ],
     subscriptionAccessMiddleware,
   );
   app.use('/api/dashboard', personalOnly, subscriptionAccessMiddleware, dashboardRouter);
   app.use('/api', studentWorkoutRouter);
   app.use('/api', workoutExecutionRouter);
+  app.use('/api/payments', paymentRouter);
+  app.use('/api/appointments', appointmentRouter);
   app.use('/api/profile', personalProfileRouter);
 
   app.use((_req, res) => {

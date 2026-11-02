@@ -604,6 +604,10 @@ body {
   .dashboard-main { padding-bottom: 86px; }
   .workspace-sections { grid-template-columns: 1fr; }
   .workspace-card { min-height: 104px; }
+  .financial-summary { grid-template-columns: 1fr; }
+  .financial-layout, .appointment-layout { grid-template-columns: 1fr; }
+  .payment-row, .appointment-row { align-items: flex-start; }
+  .payment-actions, .appointment-actions { flex: 0 0 auto; }
   .coach-launcher { right: 15px; bottom: 15px; }
   .coach-panel { width: min(410px, 100vw); }
 }
@@ -622,6 +626,25 @@ body {
 }
 
 .workspace-main { max-width: 1540px; }
+.financial-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 15px; }
+.financial-summary .metric-card { min-width: 0; padding: 16px; }
+.financial-summary .metric-value { font-size: 23px; }
+.financial-layout { grid-template-columns: minmax(270px, .75fr) minmax(0, 1.45fr); }
+.appointment-layout { grid-template-columns: minmax(270px, .75fr) minmax(0, 1.45fr); }
+.payment-list, .appointment-list { display: grid; gap: 8px; }
+.payment-row, .appointment-row { display: flex; min-width: 0; align-items: center; gap: 12px; padding: 12px; border: 1px solid rgba(255,255,255,.06); border-radius: 9px; background: rgba(9,9,11,.32); }
+.payment-info, .appointment-info { display: grid; min-width: 0; flex: 1; gap: 4px; }
+.payment-info strong, .appointment-info strong { overflow: hidden; color: #e4e4e7; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.payment-info span, .appointment-info span { color: #a1a1aa; font-size: 9px; }
+.payment-info small, .appointment-info small { color: #71717a; font-size: 8px; }
+.payment-actions, .appointment-actions { display: grid; justify-items: end; gap: 7px; }
+.payment-actions .text-button, .appointment-actions .text-button { margin-left: 7px; }
+.status-pill.overdue { border-color: rgba(248,113,113,.19); background: rgba(127,29,29,.13); color: #fca5a5; }
+.appointment-date { display: grid; width: 40px; height: 45px; flex: 0 0 auto; align-content: center; justify-items: center; border: 1px solid rgba(163,230,53,.13); border-radius: 9px; background: rgba(163,230,53,.055); color: #d9f99d; }
+.appointment-date span { font-size: 13px; font-weight: 700; }
+.appointment-date small { color: #a1a1aa; font-size: 8px; text-transform: uppercase; }
+.appointment-info p { margin: 2px 0 0; color: #85858d; font-size: 9px; line-height: 1.5; }
+.workspace-card-icon.mint { border-color: rgba(163,230,53,.16); background: rgba(163,230,53,.08); color: #bef264; }
 .workspace-intro { margin: -13px 0 23px; color: #8b8b94; font-size: 11px; }
 .workspace-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 17px; }
 .workspace-toolbar > div { display: flex; align-items: baseline; }

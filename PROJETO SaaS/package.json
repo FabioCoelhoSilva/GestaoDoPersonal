@@ -12,6 +12,7 @@
     "prisma:generate": "./node_modules/.bin/prisma generate",
     "prisma:billing-migrate": "./node_modules/.bin/prisma db execute --schema prisma/schema.prisma --file prisma/migrations/manual_billing_webhooks/migration.sql",
     "prisma:billing-plans-migrate": "./node_modules/.bin/prisma db execute --schema prisma/schema.prisma --file prisma/migrations/manual_billing_plans/migration.sql",
+    "prisma:appointments-migrate": "./node_modules/.bin/prisma db execute --schema prisma/schema.prisma --file prisma/migrations/manual_appointments/migration.sql",
     "prisma:migrate": "./node_modules/.bin/prisma migrate dev --name init_fase7",
     "prisma:execute": "./node_modules/.bin/prisma db execute --file prisma/migrations/manual_integridade/migration.sql",
     "db:seed": "tsx prisma/seed.ts",

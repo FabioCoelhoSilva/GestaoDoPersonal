@@ -83,6 +83,15 @@ async function main() {
     '--file',
     'prisma/migrations/manual_billing_plans/migration.sql',
   ]);
+  await run([
+    prismaCli,
+    'db',
+    'execute',
+    '--schema',
+    'prisma/schema.prisma',
+    '--file',
+    'prisma/migrations/manual_appointments/migration.sql',
+  ]);
   if (requestedTests.length > 0) {
     await run([vitestCli, 'run', ...requestedTests]);
     return;

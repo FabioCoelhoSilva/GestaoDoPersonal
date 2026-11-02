@@ -18,7 +18,7 @@ const ahead = (d: number) => new Date(now.getTime() + d * DAY);
 async function resetDb() {
   // TRUNCATE não dispara o trigger de access_logs; por isso o reset é permitido aqui.
   await seed.$executeRawUnsafe(`
-    TRUNCATE "access_logs", "consent_grants", "stripe_webhook_events",
+    TRUNCATE "access_logs", "consent_grants", "stripe_webhook_events", "appointments",
       "billing_subscriptions", "plans", "workout_set_logs", "workout_executions",
       "exams", "workouts", "extra_payments",
       "payment_parcels", "contracts", "leads", "students", "personals", "users"

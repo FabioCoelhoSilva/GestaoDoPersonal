@@ -79,6 +79,12 @@ enum WorkoutExecutionStatus {
   COMPLETED
 }
 
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
 // ---------- Autenticação, LGPD e auditoria ----------
 
 model User {
@@ -153,8 +159,9 @@ model Personal {
   exams               Exam[]
   billingSubscription BillingSubscription?
   stripeWebhookEvents StripeWebhookEvent[]
-  workoutExecutions WorkoutExecution[]
+  workoutExecutions   WorkoutExecution[]
   workoutSetLogs      WorkoutSetLog[]
+  appointments        Appointment[]
 
   @@map("personals")
 }
@@ -180,6 +187,7 @@ model Student {
   exams             Exam[]
   extraPayments     ExtraPayment[]
   convertedLeads    Lead[]             @relation("LeadConversion")
+  appointments      Appointment[]
 
   @@unique([id, personalId])
   @@unique([personalId, cpfHash])
@@ -274,6 +282,27 @@ model ExtraPayment {
   @@unique([id, personalId])
   @@index([personalId, status, confirmedAt])
   @@map("extra_payments")
+}
+
+model Appointment {
+  id         String            @id @default(uuid())
+  personalId String
+  studentId  String
+  title      String
+  startsAt   DateTime
+  endsAt     DateTime
+  notes      String?
+  status     AppointmentStatus @default(SCHEDULED)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  personal Personal @relation(fields: [personalId], references: [id], onDelete: Restrict)
+  student  Student  @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  @@unique([id, personalId])
+  @@index([personalId, startsAt, endsAt, status])
+  @@index([studentId, startsAt])
+  @@map("appointments")
 }
 
 model Workout {

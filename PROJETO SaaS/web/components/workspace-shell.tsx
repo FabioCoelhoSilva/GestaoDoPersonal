@@ -39,6 +39,8 @@ export function WorkspaceShell({
           <Link className="side-link" href="/dashboard"><span aria-hidden="true">◫</span> Visão geral</Link>
           <Link className={`side-link ${title === 'Alunos' ? 'active' : ''}`} href="/dashboard/students"><span aria-hidden="true">♙</span> Alunos</Link>
           <Link className={`side-link ${title === 'Treinos' ? 'active' : ''}`} href="/dashboard/workouts"><span aria-hidden="true">▤</span> Treinos</Link>
+          <Link className={`side-link ${title === 'Pagamentos' ? 'active' : ''}`} href="/dashboard/payments"><span aria-hidden="true">◇</span> Pagamentos</Link>
+          <Link className={`side-link ${title === 'Agenda' ? 'active' : ''}`} href="/dashboard/appointments"><span aria-hidden="true">◷</span> Agenda</Link>
         </nav>
         <div className="sidebar-bottom">
           <div className="user-avatar" aria-hidden="true">{displayName.slice(0, 1).toUpperCase()}</div>

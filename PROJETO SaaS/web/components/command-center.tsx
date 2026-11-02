@@ -25,6 +25,20 @@ const destinations = [
     keywords: ['subscrição', 'assinatura', 'plano', 'billing', 'pagamento', 'faturação'],
     icon: '◇',
   },
+  {
+    title: 'Pagamentos',
+    description: 'Gerir contratos e mensalidades dos alunos',
+    href: '/dashboard/payments',
+    keywords: ['pagamento', 'pagamentos', 'mensalidade', 'mensalidades', 'cobrar', 'faturação', 'contrato'],
+    icon: '€',
+  },
+  {
+    title: 'Agenda',
+    description: 'Agendar e acompanhar aulas',
+    href: '/dashboard/appointments',
+    keywords: ['agenda', 'aula', 'aulas', 'sessão', 'sessões', 'horário', 'marcar'],
+    icon: '◷',
+  },
 ];
 
 export function CommandCenter() {
@@ -126,7 +140,7 @@ export function CommandCenter() {
       )}
       {!open && (
         <div className="command-prompts" aria-label="Sugestões">
-          {['Criar treino', 'Ver alunos', 'Consultar subscrição'].map((prompt) => (
+          {['Criar treino', 'Ver alunos', 'Ver agenda', 'Consultar pagamentos'].map((prompt) => (
             <button
               className="prompt-chip"
               type="button"

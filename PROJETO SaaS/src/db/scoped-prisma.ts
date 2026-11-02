@@ -29,6 +29,7 @@ const TENANT_RULES: Record<string, TenantRule> = {
   StripeWebhookEvent: byTenant,
   WorkoutExecution: byTenant,
   WorkoutSetLog: byTenant,
+  Appointment: byTenant,
 };
 
 const READ_OPS = [
@@ -57,6 +58,7 @@ const TENANT_RELATION_FIELDS = new Set([
   'billingSubscription',
   'stripeWebhookEvents',
   'executions',
+  'appointments',
   'setLogs',
   'workoutExercise',
 ]);
@@ -519,6 +521,111 @@ export async function provisionPersonalTenant(input: {
     if (emailOwner) throw new PersonalProvisioningConflictError();
     throw error;
   }
+}
+
+export class TenantStudentUnavailableError extends Error {
+  constructor() {
+    super('O aluno não existe, está inativo ou não pertence ao tenant autenticado');
+    this.name = 'TenantStudentUnavailableError';
+  }
+}
+
+export class AppointmentTimeConflictError extends Error {
+  constructor() {
+    super('O horário escolhido conflita com outra aula agendada');
+    this.name = 'AppointmentTimeConflictError';
+  }
+}
+
+export async function createMonthlyContractWithParcels(input: {
+  personalId: string;
+  studentId: string;
+  cycle: 'MONTHS_3' | 'MONTHS_6' | 'MONTHS_12';
+  monthlyAmount: string;
+  totalAmount: string;
+  startDate: Date;
+  endDate: Date;
+  parcels: Array<{ dueDate: Date; amount: string }>;
+}) {
+  return basePrisma.$transaction(async (tx) => {
+    const student = await tx.student.findFirst({
+      where: { id: input.studentId, personalId: input.personalId, active: true, anonymizedAt: null },
+      select: { id: true },
+    });
+    if (!student) throw new TenantStudentUnavailableError();
+
+    const contract = await tx.contract.create({
+      data: {
+        personalId: input.personalId,
+        studentId: student.id,
+        cycle: input.cycle,
+        status: 'SIGNED',
+        totalAmount: input.totalAmount,
+        monthlyAmount: input.monthlyAmount,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        signedAt: new Date(),
+      },
+    });
+
+    await tx.paymentParcel.createMany({
+      data: input.parcels.map((parcel) => ({
+        personalId: input.personalId,
+        contractId: contract.id,
+        dueDate: parcel.dueDate,
+        amount: parcel.amount,
+        status: 'PENDING',
+      })),
+    });
+
+    return tx.contract.findUniqueOrThrow({
+      where: { id: contract.id },
+      include: { parcels: { orderBy: { dueDate: 'asc' } }, student: { select: { id: true, name: true, email: true } } },
+    });
+  });
+}
+
+export async function createTenantAppointment(input: {
+  personalId: string;
+  studentId: string;
+  title: string;
+  startsAt: Date;
+  endsAt: Date;
+  notes?: string | null;
+}) {
+  return basePrisma.$transaction(async (tx) => {
+    await tx.$queryRaw(Prisma.sql`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtext(${input.personalId}))`);
+
+    const student = await tx.student.findFirst({
+      where: { id: input.studentId, personalId: input.personalId, active: true, anonymizedAt: null },
+      select: { id: true },
+    });
+    if (!student) throw new TenantStudentUnavailableError();
+
+    const conflict = await tx.appointment.findFirst({
+      where: {
+        personalId: input.personalId,
+        status: 'SCHEDULED',
+        startsAt: { lt: input.endsAt },
+        endsAt: { gt: input.startsAt },
+      },
+      select: { id: true },
+    });
+    if (conflict) throw new AppointmentTimeConflictError();
+
+    return tx.appointment.create({
+      data: {
+        personalId: input.personalId,
+        studentId: student.id,
+        title: input.title,
+        startsAt: input.startsAt,
+        endsAt: input.endsAt,
+        notes: input.notes,
+        status: 'SCHEDULED',
+      },
+      include: { student: { select: { id: true, name: true, email: true, active: true } } },
+    });
+  });
 }
 
 export class BillingWebhookRejectedError extends Error {}
