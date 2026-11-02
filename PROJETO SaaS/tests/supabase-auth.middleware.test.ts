@@ -102,6 +102,7 @@ describe('Supabase JWT authentication', () => {
       role: 'PERSONAL',
       tenantId: 'personal-tenant-id',
       personalId: 'personal-tenant-id',
+      studentId: null,
     });
     expect(next.wasCalled()).toBe(true);
     expect(res.status).not.toHaveBeenCalled();
@@ -151,7 +152,7 @@ describe('Supabase JWT authentication', () => {
     }
   });
 
-  it('rejects verified users without a mapped Personal tenant', async () => {
+  it('rejects verified users without a mapped tenant or student', async () => {
     const res = response();
     await createSupabaseAuthMiddleware({
       keyResolver: verifier,
@@ -160,7 +161,35 @@ describe('Supabase JWT authentication', () => {
     })(request(`Bearer ${validToken}`), res, makeNext().next);
 
     expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith({ error: 'Utilizador sem tenant de personal ativo' });
+    expect(res.json).toHaveBeenCalledWith({ error: 'Utilizador sem tenant ou vínculo de aluno ativo' });
+  });
+
+  it('maps a verified student to its own student id and personal tenant', async () => {
+    const req = request(`Bearer ${validToken}`) as Request & {
+      auth?: Record<string, unknown>;
+      tenantId?: string;
+    };
+    const res = response();
+    const next = makeNext();
+    await createSupabaseAuthMiddleware({
+      keyResolver: verifier,
+      issuer: ISSUER,
+      lookupIdentity: async () => ({
+        userId: 'student-user-id',
+        role: 'STUDENT',
+        tenantId: 'student-personal-tenant',
+        studentId: 'student-record-id',
+      }),
+    })(req, res, next.next);
+
+    expect(req.tenantId).toBe('student-personal-tenant');
+    expect(req.auth).toMatchObject({
+      role: 'STUDENT',
+      tenantId: 'student-personal-tenant',
+      personalId: 'student-personal-tenant',
+      studentId: 'student-record-id',
+    });
+    expect(next.wasCalled()).toBe(true);
   });
 
   it('does not disclose token details in authentication errors', async () => {

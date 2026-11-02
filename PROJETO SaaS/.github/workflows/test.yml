@@ -31,6 +31,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/saas_test?schema=public
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/saas_test?schema=public
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/saas_test?schema=public
       STRIPE_WEBHOOK_SECRET: whsec_ci_test_only
     steps:
       - name: Checkout
@@ -51,14 +52,8 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate --schema prisma/schema.prisma
 
-      - name: Create test database schema
-        run: npx prisma db push --schema prisma/schema.prisma
-
-      - name: Apply manual integrity constraints
-        run: npx prisma db execute --schema prisma/schema.prisma --file prisma/migrations/manual_integridade/migration.sql
-
       - name: Run isolation tests
         run: npm run test:isolation
 
       - name: Run server and webhook tests
-        run: npx vitest run tests/server.test.ts tests/stripe-webhook-signature.test.ts tests/supabase-auth.middleware.test.ts tests/prisma-tenant-extension.test.ts tests/student-workout.service.test.ts
+        run: npm test -- tests/server.test.ts tests/api-error-handler.test.ts tests/stripe-webhook-signature.test.ts tests/supabase-auth.middleware.test.ts tests/development-auth.middleware.test.ts tests/prisma-tenant-extension.test.ts tests/student-workout.service.test.ts tests/student-workout.routes.test.ts tests/workout-execution.service.test.ts tests/workout-execution.routes.test.ts tests/workout-execution.e2e.test.ts tests/dashboard-metrics.service.test.ts tests/dashboard-metrics.routes.test.ts tests/dashboard-metrics.e2e.test.ts tests/personal-profile.service.test.ts tests/personal-profile.routes.test.ts tests/personal-profile.e2e.test.ts tests/billing-subscription.service.test.ts tests/billing-subscription.routes.test.ts tests/billing-subscription.e2e.test.ts

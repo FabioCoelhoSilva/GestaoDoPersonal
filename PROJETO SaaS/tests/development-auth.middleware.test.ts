@@ -94,6 +94,7 @@ describe('development bearer authentication', () => {
       role: 'PERSONAL',
       tenantId: 'personal-test',
       personalId: 'personal-test',
+      studentId: null,
     });
     expect(next.wasCalled()).toBe(true);
     expect(res.status).not.toHaveBeenCalled();

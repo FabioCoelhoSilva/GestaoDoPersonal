@@ -1,4 +1,5 @@
 import { scopedPrisma } from '../db/scoped-prisma';
+import { assertPlanCapacity } from '../billing/subscription.service';
 
 export type CreateStudentData = {
   name: string;
@@ -9,6 +10,7 @@ export type CreateStudentData = {
 
 export type WorkoutExerciseInput = {
   name: string;
+  gifUrl?: string | null;
   sets: number;
   reps: string;
   restSeconds?: number | null;
@@ -82,6 +84,25 @@ function optionalProtectedValue(
   return value;
 }
 
+function optionalGifUrl(value: unknown, field: string): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== 'string' || value.length > 2048) {
+    throw new StudentWorkoutValidationError(`${field} deve ser uma URL HTTPS válida`);
+  }
+
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new StudentWorkoutValidationError(`${field} deve ser uma URL HTTPS válida`);
+  }
+  if (url.protocol !== 'https:' || url.username || url.password) {
+    throw new StudentWorkoutValidationError(`${field} deve ser uma URL HTTPS válida`);
+  }
+  return url.toString();
+}
+
 function validateStudentData(data: CreateStudentData) {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     throw new StudentWorkoutValidationError('Dados do aluno inválidos');
@@ -133,7 +154,7 @@ function validateWorkoutPlanData(data: CreateWorkoutPlanData) {
     if (!exercise || typeof exercise !== 'object' || Array.isArray(exercise)) {
       throw new StudentWorkoutValidationError(`exercises[${index}] inválido`);
     }
-    const exerciseFields = new Set(['name', 'sets', 'reps', 'restSeconds', 'order', 'notes']);
+    const exerciseFields = new Set(['name', 'gifUrl', 'sets', 'reps', 'restSeconds', 'order', 'notes']);
     const extraFields = Object.keys(exercise).filter((field) => !exerciseFields.has(field));
     if (extraFields.length > 0) {
       throw new StudentWorkoutValidationError(
@@ -142,6 +163,7 @@ function validateWorkoutPlanData(data: CreateWorkoutPlanData) {
     }
 
     const name = requireText(exercise.name, `exercises[${index}].name`, 200);
+    const gifUrl = optionalGifUrl(exercise.gifUrl, `exercises[${index}].gifUrl`);
     if (!Number.isInteger(exercise.sets) || exercise.sets < 1 || exercise.sets > 100) {
       throw new StudentWorkoutValidationError(`exercises[${index}].sets deve ser um inteiro entre 1 e 100`);
     }
@@ -167,6 +189,7 @@ function validateWorkoutPlanData(data: CreateWorkoutPlanData) {
     const notes = optionalText(exercise.notes, `exercises[${index}].notes`, 2000);
     return {
       name,
+      ...(gifUrl !== undefined ? { gifUrl } : {}),
       sets: exercise.sets,
       reps,
       order: exercise.order,
@@ -187,6 +210,7 @@ function validateWorkoutPlanData(data: CreateWorkoutPlanData) {
 export async function createStudent(tenantId: string, data: CreateStudentData) {
   const tenant = requireTenantId(tenantId);
   const studentData = validateStudentData(data);
+  await assertPlanCapacity(tenant, 'students');
   return scopedPrisma(tenant).student.create({
     data: { ...studentData, personal: { connect: { id: tenant } } },
   });
@@ -209,6 +233,7 @@ export async function createWorkoutPlan(tenantId: string, data: CreateWorkoutPla
     select: { id: true },
   });
   if (!student) throw new TenantStudentNotFoundError();
+  await assertPlanCapacity(tenant, 'workouts');
 
   return db.workout.create({
     data: {

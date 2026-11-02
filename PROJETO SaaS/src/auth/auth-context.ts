@@ -4,6 +4,7 @@ export type AuthContext = {
   role: 'ADMIN' | 'PERSONAL' | 'STUDENT';
   tenantId: string | null;
   personalId: string | null;
+  studentId: string | null;
 };
 
 declare global {

@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS "workout_exercises" (
   "personalId" TEXT NOT NULL,
   "workoutId" TEXT NOT NULL,
   "name" TEXT NOT NULL,
+  "gifUrl" VARCHAR(2048),
   "sets" INTEGER NOT NULL,
   "reps" TEXT NOT NULL,
   "restSeconds" INTEGER,
@@ -12,6 +13,9 @@ CREATE TABLE IF NOT EXISTS "workout_exercises" (
   "updatedAt" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "workout_exercises_pkey" PRIMARY KEY ("id")
 );
+
+ALTER TABLE "workout_exercises"
+  ADD COLUMN IF NOT EXISTS "gifUrl" VARCHAR(2048);
 
 DO $$
 BEGIN

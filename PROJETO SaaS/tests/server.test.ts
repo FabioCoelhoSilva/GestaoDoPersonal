@@ -65,6 +65,38 @@ describe('Express server middleware', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Envie Authorization: Bearer <access_token>',
     });
+
+  });
+
+  it('does not expose dashboard routes to authenticated students', async () => {
+      const app = createApp((req, _res, next) => {
+        req.auth = {
+          userId: 'student-user',
+          subject: 'student-sub',
+          role: 'STUDENT',
+          tenantId: 'tenant-1',
+          personalId: 'tenant-1',
+          studentId: 'student-1',
+        };
+        req.tenantId = 'tenant-1';
+        next();
+      });
+      const studentServer = app.listen(0);
+      await once(studentServer, 'listening');
+      const address = studentServer.address();
+      if (!address || typeof address === 'string') throw new Error('Servidor de teste sem porta TCP');
+
+      try {
+        const response = await fetch(`http://127.0.0.1:${address.port}/api/dashboard/executive`);
+        expect(response.status).toBe(403);
+        await expect(response.json()).resolves.toEqual({
+          error: 'Acesso restrito a personal autenticado',
+        });
+      } finally {
+        await new Promise<void>((resolve, reject) => {
+          studentServer.close((error) => (error ? reject(error) : resolve()));
+        });
+      }
   });
 
   it('uses express.json for non-webhook routes and reports malformed JSON cleanly', async () => {
@@ -75,7 +107,10 @@ describe('Express server middleware', () => {
     });
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: 'Pedido inválido' });
+    await expect(response.json()).resolves.toEqual({
+      error: 'Pedido inválido',
+      code: 'BAD_REQUEST',
+    });
   });
 
   it('reports a missing Stripe webhook secret clearly', async () => {

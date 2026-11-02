@@ -50,6 +50,7 @@ export function createDevelopmentAuthMiddleware(
         role: 'PERSONAL',
         tenantId: personal.id,
         personalId: personal.id,
+        studentId: null,
       };
       req.auth = auth;
       req.tenantId = personal.id;

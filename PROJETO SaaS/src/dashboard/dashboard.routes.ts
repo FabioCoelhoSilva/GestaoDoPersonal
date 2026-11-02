@@ -5,6 +5,7 @@ import { DashboardService } from './dashboard.service';
 import { BiMetricsService } from '../bi/bi-metrics.service';
 import { logAccess } from '../db/scoped-prisma';
 import { AuthContext } from '../auth/auth-context';
+import { dashboardMetricsRouter } from './dashboard-metrics.routes';
 
 // personalId NUNCA vem de body, query ou params.
 type AuthedRequest = Request & { auth?: AuthContext };
@@ -49,6 +50,7 @@ function parseOr400<T>(schema: z.ZodType<T>, data: unknown, res: Response): T | 
 
 export const dashboardRouter = Router();
 dashboardRouter.use(requirePersonal);
+dashboardRouter.use(dashboardMetricsRouter);
 
 dashboardRouter.get('/executive', async (req: AuthedRequest, res, next) => {
   try {

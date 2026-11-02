@@ -7,6 +7,7 @@ type AuthIdentity = {
   userId: string;
   role: AuthContext['role'];
   tenantId: string | null;
+  studentId?: string | null;
 };
 
 type MiddlewareOptions = {
@@ -74,8 +75,13 @@ export function createSupabaseAuthMiddleware(options: MiddlewareOptions = {}): R
       }
 
       const identity = await (options.lookupIdentity ?? findPersonalAuthContextByProviderSub)(payload.sub);
-      if (!identity || identity.role !== 'PERSONAL' || !identity.tenantId) {
-        return res.status(403).json({ error: 'Utilizador sem tenant de personal ativo' });
+      if (
+        !identity ||
+        !identity.tenantId ||
+        (identity.role !== 'PERSONAL' && identity.role !== 'STUDENT') ||
+        (identity.role === 'STUDENT' && !identity.studentId)
+      ) {
+        return res.status(403).json({ error: 'Utilizador sem tenant ou vínculo de aluno ativo' });
       }
 
       const auth: AuthContext = {
@@ -84,6 +90,7 @@ export function createSupabaseAuthMiddleware(options: MiddlewareOptions = {}): R
         role: identity.role,
         tenantId: identity.tenantId,
         personalId: identity.tenantId,
+        studentId: identity.studentId ?? null,
       };
       req.auth = auth;
       req.tenantId = auth.tenantId ?? undefined;

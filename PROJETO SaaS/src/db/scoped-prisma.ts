@@ -27,6 +27,8 @@ const TENANT_RULES: Record<string, TenantRule> = {
   Exam: byTenant,
   BillingSubscription: byTenant,
   StripeWebhookEvent: byTenant,
+  WorkoutExecution: byTenant,
+  WorkoutSetLog: byTenant,
 };
 
 const READ_OPS = [
@@ -54,6 +56,9 @@ const TENANT_RELATION_FIELDS = new Set([
   'convertedLeads',
   'billingSubscription',
   'stripeWebhookEvents',
+  'executions',
+  'setLogs',
+  'workoutExercise',
 ]);
 
 function mergeTenantWhere(
@@ -101,6 +106,64 @@ function stripTenantMutationData(
       throw new Error('getScopedPrisma: exercícios devem ser criados como uma lista no plano');
     }
   }
+  if (allowedRelations.includes('setLogs') && 'setLogs' in data) {
+    const setLogs = data.setLogs;
+    if (
+      typeof setLogs !== 'object' ||
+      setLogs === null ||
+      Array.isArray(setLogs) ||
+      Object.keys(setLogs).some((key) => key !== 'create') ||
+      !Array.isArray((setLogs as { create?: unknown }).create) ||
+      !allowedRelations.includes('workout') ||
+      typeof data.workout !== 'object' ||
+      data.workout === null ||
+      !('connect' in data.workout) ||
+      typeof data.workout.connect !== 'object' ||
+      data.workout.connect === null ||
+      !('id_personalId' in data.workout.connect) ||
+      typeof data.workout.connect.id_personalId !== 'object' ||
+      data.workout.connect.id_personalId === null ||
+      !('id' in data.workout.connect.id_personalId) ||
+      !('personalId' in data.workout.connect.id_personalId) ||
+      typeof data.workout.connect.id_personalId.id !== 'string' ||
+      data.workout.connect.id_personalId.personalId !== tenantId
+    ) {
+      throw new Error('getScopedPrisma: séries devem ser criadas como uma lista no registo do treino');
+    }
+
+    const allowedSetFields = new Set([
+      'setNumber',
+      'repsCompleted',
+      'loadKg',
+      'personal',
+      'workout',
+      'workoutExercise',
+    ]);
+    for (const [index, setLog] of (setLogs as { create: unknown[] }).create.entries()) {
+      if (
+        typeof setLog !== 'object' ||
+        setLog === null ||
+        Array.isArray(setLog) ||
+        Object.keys(setLog).some((key) => !allowedSetFields.has(key))
+      ) {
+        throw new Error(`getScopedPrisma: série ${index} inválida`);
+      }
+      const entry = setLog as Record<string, unknown>;
+      const personalConnect = (entry.personal as { connect?: { id?: unknown } } | undefined)?.connect;
+      const workoutConnect = (entry.workout as {
+        connect?: { id_personalId?: { id?: unknown; personalId?: unknown } };
+      } | undefined)?.connect;
+      const exerciseConnect = (entry.workoutExercise as { connect?: { id?: unknown } } | undefined)?.connect;
+      if (
+        personalConnect?.id !== tenantId ||
+        workoutConnect?.id_personalId?.id !== data.workout.connect.id_personalId.id ||
+        workoutConnect.id_personalId.personalId !== tenantId ||
+        typeof exerciseConnect?.id !== 'string'
+      ) {
+        throw new Error('getScopedPrisma: série deve pertencer ao tenant e plano do registo');
+      }
+    }
+  }
   if (allowedRelations.includes('personal') && 'personal' in data) {
     const personal = data.personal;
     if (
@@ -129,10 +192,41 @@ function stripTenantMutationData(
       typeof student.connect !== 'object' ||
       student.connect === null ||
       Array.isArray(student.connect) ||
-      Object.keys(student.connect).length !== 1 ||
-      typeof student.connect.id !== 'string'
+      !(
+        (Object.keys(student.connect).length === 1 && typeof student.connect.id === 'string') ||
+        (Object.keys(student.connect).length === 1 &&
+          typeof student.connect.id_personalId === 'object' &&
+          student.connect.id_personalId !== null &&
+          'id' in student.connect.id_personalId &&
+          typeof student.connect.id_personalId.id === 'string' &&
+          'personalId' in student.connect.id_personalId &&
+          student.connect.id_personalId.personalId === tenantId)
+      )
     ) {
       throw new Error('getScopedPrisma: aluno do plano deve ser ligado por um identificador');
+    }
+  }
+  if (allowedRelations.includes('workout') && 'workout' in data && !('setLogs' in data)) {
+    const workout = data.workout;
+    if (
+      typeof workout !== 'object' ||
+      workout === null ||
+      Array.isArray(workout) ||
+      Object.keys(workout).length !== 1 ||
+      !('connect' in workout) ||
+      typeof workout.connect !== 'object' ||
+      workout.connect === null ||
+      Array.isArray(workout.connect) ||
+      Object.keys(workout.connect).length !== 1 ||
+      !('id_personalId' in workout.connect) ||
+      typeof workout.connect.id_personalId !== 'object' ||
+      workout.connect.id_personalId === null ||
+      !('id' in workout.connect.id_personalId) ||
+      typeof workout.connect.id_personalId.id !== 'string' ||
+      !('personalId' in workout.connect.id_personalId) ||
+      workout.connect.id_personalId.personalId !== tenantId
+    ) {
+      throw new Error('getScopedPrisma: execução deve estar ligada a um treino do tenant autenticado');
     }
   }
   const next = { ...data };
@@ -173,12 +267,14 @@ export function scopedPrisma(tenantId: string) {
               const allowedRelations =
                 model === 'Workout'
                   ? ['exercises', 'personal', 'student']
+                  : model === 'WorkoutExecution'
+                    ? ['personal', 'student', 'workout', 'setLogs']
                   : model === 'Student'
                     ? ['personal']
                     : [];
               const data = stripTenantMutationData(a.data ?? {}, allowedRelations, tenantId);
               a.data =
-                ['Workout', 'Student'].includes(model) && 'personal' in data
+                ['Workout', 'Student', 'WorkoutExecution'].includes(model) && 'personal' in data
                   ? data
                   : { ...data, ...scoped };
             }
@@ -251,6 +347,48 @@ export function findPersonalAuthContextById(personalId: string) {
   });
 }
 
+export async function readPersonalProfile(userId: string, personalId: string) {
+  return basePrisma.personal.findFirst({
+    where: { id: personalId, userId },
+    select: {
+      id: true,
+      name: true,
+      createdAt: true,
+      updatedAt: true,
+      user: { select: { email: true } },
+    },
+  });
+}
+
+export async function updatePersonalProfileName(
+  userId: string,
+  personalId: string,
+  name: string,
+) {
+  return basePrisma.$transaction(async (tx) => {
+    const personal = await tx.personal.findFirst({
+      where: { id: personalId, userId },
+      select: { id: true, userId: true },
+    });
+    if (!personal) return null;
+
+    const [updatedPersonal, updatedUser] = await Promise.all([
+      tx.personal.update({
+        where: { id: personal.id },
+        data: { name },
+        select: { id: true, name: true, createdAt: true, updatedAt: true },
+      }),
+      tx.user.update({
+        where: { id: personal.userId },
+        data: { name },
+        select: { email: true },
+      }),
+    ]);
+
+    return { ...updatedPersonal, user: updatedUser };
+  });
+}
+
 export async function findPersonalAuthContextByProviderSub(providerSub: string) {
   const user = await basePrisma.user.findUnique({
     where: { providerSub },
@@ -258,10 +396,22 @@ export async function findPersonalAuthContextByProviderSub(providerSub: string) 
       id: true,
       role: true,
       personal: { select: { id: true } },
+      student: { select: { id: true, personalId: true } },
     },
   });
-  if (!user || !user.personal) return null;
-  return { userId: user.id, role: user.role, tenantId: user.personal.id };
+  if (!user) return null;
+  if (user.role === 'PERSONAL' && user.personal) {
+    return { userId: user.id, role: user.role, tenantId: user.personal.id, studentId: null };
+  }
+  if (user.role === 'STUDENT' && user.student) {
+    return {
+      userId: user.id,
+      role: user.role,
+      tenantId: user.student.personalId,
+      studentId: user.student.id,
+    };
+  }
+  return null;
 }
 
 export class BillingWebhookRejectedError extends Error {}
@@ -284,6 +434,13 @@ export async function applyStripeSubscriptionEvent(input: {
       select: { id: true },
     });
     if (!personal) throw new BillingWebhookRejectedError('Tenant de assinatura inexistente');
+    const plan = await tx.plan.findUnique({
+      where: { stripePriceId: input.priceId },
+      select: { id: true, active: true },
+    });
+    if (!plan || !plan.active) {
+      throw new BillingWebhookRejectedError('Plano Stripe inexistente ou inativo');
+    }
 
     const inserted = await tx.stripeWebhookEvent.createMany({
       data: [{
@@ -300,6 +457,7 @@ export async function applyStripeSubscriptionEvent(input: {
       where: { personalId: input.personalId },
     });
     const data = {
+      planId: plan.id,
       stripeSubscriptionId: input.subscriptionId,
       stripeCustomerId: input.customerId,
       stripePriceId: input.priceId,

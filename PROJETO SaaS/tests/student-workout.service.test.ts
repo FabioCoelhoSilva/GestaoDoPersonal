@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { scopedPrisma, studentCreate, studentFindFirst, studentFindMany, workoutCreate } = vi.hoisted(() => ({
+const { scopedPrisma, assertPlanCapacity, studentCreate, studentFindFirst, studentFindMany, workoutCreate } = vi.hoisted(() => ({
   scopedPrisma: vi.fn(),
+  assertPlanCapacity: vi.fn(),
   studentCreate: vi.fn(),
   studentFindFirst: vi.fn(),
   studentFindMany: vi.fn(),
@@ -11,6 +12,7 @@ const { scopedPrisma, studentCreate, studentFindFirst, studentFindMany, workoutC
 vi.mock('../src/db/scoped-prisma', () => ({
   scopedPrisma,
 }));
+vi.mock('../src/billing/subscription.service', () => ({ assertPlanCapacity }));
 
 import {
   createStudent,
@@ -40,6 +42,7 @@ describe('student-workout service', () => {
     await expect(
       createStudent('tenant-1', { name: ' Ana ', email: 'ANA@example.com' }),
     ).resolves.toEqual(created);
+    expect(assertPlanCapacity).toHaveBeenCalledWith('tenant-1', 'students');
     expect(scopedPrisma).toHaveBeenCalledWith('tenant-1');
     expect(studentCreate).toHaveBeenCalledWith({
       data: {
@@ -96,6 +99,7 @@ describe('student-workout service', () => {
         title: 'Plano A',
         exercises: [{
           name: ' Agachamento ',
+          gifUrl: 'https://cdn.example.com/exercises/squat.gif',
           sets: 3,
           reps: '8-12',
           restSeconds: 90,
@@ -104,6 +108,7 @@ describe('student-workout service', () => {
         }],
       }),
     ).resolves.toEqual(created);
+    expect(assertPlanCapacity).toHaveBeenCalledWith('tenant-1', 'workouts');
     expect(workoutCreate).toHaveBeenCalledWith({
       data: {
         title: 'Plano A',
@@ -112,6 +117,7 @@ describe('student-workout service', () => {
         exercises: {
           create: [{
             name: 'Agachamento',
+            gifUrl: 'https://cdn.example.com/exercises/squat.gif',
             sets: 3,
             reps: '8-12',
             order: 0,

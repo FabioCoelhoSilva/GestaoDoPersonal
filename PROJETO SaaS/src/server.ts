@@ -1,11 +1,24 @@
 import 'dotenv/config';
-import express, { ErrorRequestHandler, RequestHandler } from 'express';
+import express, { RequestHandler } from 'express';
 import { supabaseAuthMiddleware } from './auth/supabase-auth.middleware';
 import { dashboardRouter } from './dashboard/dashboard.routes';
+import { studentWorkoutRouter } from './students/student-workout.routes';
+import { workoutExecutionRouter } from './students/workout-execution.routes';
+import { personalProfileRouter } from './profile/personal-profile.routes';
 import { stripeWebhookHandler } from './webhooks/stripe.routes';
+import { subscriptionRouter } from './billing/subscription.routes';
+import { subscriptionAccessMiddleware } from './billing/subscription.middleware';
+import { apiErrorHandler } from './middleware/api-error-handler';
 
 export function createApp(authMiddleware: RequestHandler = supabaseAuthMiddleware) {
   const app = express();
+  const personalOnly: RequestHandler = (req, res, next) => {
+    if (!req.auth) return res.status(401).json({ error: 'Autenticação obrigatória' });
+    if (req.auth.role !== 'PERSONAL') {
+      return res.status(403).json({ error: 'Acesso restrito a personal autenticado' });
+    }
+    return next();
+  };
 
   app.post(
     '/webhooks/stripe',
@@ -15,30 +28,22 @@ export function createApp(authMiddleware: RequestHandler = supabaseAuthMiddlewar
 
   app.use(express.json({ limit: '1mb' }));
 
-  app.use('/api/dashboard', authMiddleware);
-  app.use('/api/dashboard', dashboardRouter);
+  app.use('/api', authMiddleware);
+  app.use('/api/billing', subscriptionRouter);
+  app.use(
+    ['/api/students', '/api/workouts', '/api/workout-executions'],
+    subscriptionAccessMiddleware,
+  );
+  app.use('/api/dashboard', personalOnly, subscriptionAccessMiddleware, dashboardRouter);
+  app.use('/api', studentWorkoutRouter);
+  app.use('/api', workoutExecutionRouter);
+  app.use('/api/profile', personalProfileRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: 'Rota não encontrada' });
   });
 
-  const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
-    const status =
-      typeof error === 'object' &&
-      error !== null &&
-      'status' in error &&
-      typeof error.status === 'number' &&
-      error.status >= 400 &&
-      error.status < 500
-        ? error.status
-        : 500;
-
-    if (status >= 500) console.error('Erro não tratado na API', error);
-    res.status(status).json({
-      error: status === 400 ? 'Pedido inválido' : 'Erro interno do servidor',
-    });
-  };
-  app.use(errorHandler);
+  app.use(apiErrorHandler);
 
   return app;
 }

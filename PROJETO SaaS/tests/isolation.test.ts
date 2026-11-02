@@ -3,10 +3,13 @@ import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { getScopedPrisma, logAccess } from '../src/db/scoped-prisma';
 import { DashboardService } from '../src/dashboard/dashboard.service';
 import { BiMetricsService } from '../src/bi/bi-metrics.service';
+import { createWorkoutPlan } from '../src/students/student-workout.service';
 
-// Cliente de SEED (somente testes): acesso sem escopo para montar cenários.
-// Rodar contra banco de teste: DATABASE_URL=postgresql://.../saas_test
-const seed = new PrismaClient();
+const { assertSafeTestDatabaseEnv } = require('../scripts/test-db-safety.cjs') as {
+  assertSafeTestDatabaseEnv: (env: NodeJS.ProcessEnv) => string;
+};
+const testDatabaseUrl = assertSafeTestDatabaseEnv(process.env);
+const seed = new PrismaClient({ datasourceUrl: testDatabaseUrl });
 const DAY = 24 * 60 * 60 * 1000;
 const now = new Date();
 const ago = (d: number) => new Date(now.getTime() - d * DAY);
@@ -15,7 +18,9 @@ const ahead = (d: number) => new Date(now.getTime() + d * DAY);
 async function resetDb() {
   // TRUNCATE não dispara o trigger de access_logs; por isso o reset é permitido aqui.
   await seed.$executeRawUnsafe(`
-    TRUNCATE "access_logs", "consent_grants", "exams", "workouts", "extra_payments",
+    TRUNCATE "access_logs", "consent_grants", "stripe_webhook_events",
+      "billing_subscriptions", "plans", "workout_set_logs", "workout_executions",
+      "exams", "workouts", "extra_payments",
       "payment_parcels", "contracts", "leads", "students", "personals", "users"
     RESTART IDENTITY CASCADE`);
 }
@@ -151,6 +156,49 @@ describe('escopo: leitura e escrita entre tenants', () => {
 });
 
 describe('integridade no banco', () => {
+  it('persiste exercícios no plano e mantém a leitura isolada por tenant', async () => {
+    const a = await tenant('workout-a');
+    const b = await tenant('workout-b');
+    const plan = await seed.plan.create({
+      data: {
+        name: `Workout isolation ${crypto.randomUUID()}`,
+        stripePriceId: `price_isolation_${crypto.randomUUID()}`,
+        maxStudents: 10,
+        maxWorkouts: 10,
+      },
+    });
+    await seed.billingSubscription.create({
+      data: {
+        personalId: a.personal.id,
+        planId: plan.id,
+        stripeSubscriptionId: `sub_isolation_${crypto.randomUUID()}`,
+        stripePriceId: plan.stripePriceId,
+        status: 'ACTIVE',
+      },
+    });
+    const studentA = await student(a.personal.id, 'workout-a');
+
+    const workout = await createWorkoutPlan(a.personal.id, {
+      studentId: studentA.id,
+      title: 'Plano integrado',
+      exercises: [
+        { name: 'Agachamento', sets: 3, reps: '8-12', restSeconds: 90, order: 0 },
+        { name: 'Remada', sets: 4, reps: '10', order: 1 },
+      ],
+    });
+
+    expect(workout.exercises).toHaveLength(2);
+    expect(workout.exercises.map(({ name }) => name)).toEqual(['Agachamento', 'Remada']);
+    expect(workout.exercises.every(({ personalId }) => personalId === a.personal.id)).toBe(true);
+
+    const scopedA = getScopedPrisma(a.personal.id);
+    const scopedB = getScopedPrisma(b.personal.id);
+    await expect(scopedA.workoutExercise.findMany({ where: { workoutId: workout.id } }))
+      .resolves.toHaveLength(2);
+    await expect(scopedB.workoutExercise.findMany({ where: { workoutId: workout.id } }))
+      .resolves.toHaveLength(0);
+  });
+
   it('FK composta rejeita contrato com aluno de outro tenant', async () => {
     const a = await tenant('a');
     const b = await tenant('b');
