@@ -1,17 +1,31 @@
 import { ContractStatus, ExamStatus, LeadStatus, ParcelStatus } from '@prisma/client';
-import { getScopedPrisma } from '../db/scoped-prisma';
+import {
+  countTenantRows,
+  countTenantRowsByValues,
+  selectTenantRows,
+  selectTenantRowsByValues,
+} from '../db/supabase-rest';
 import { BI_RULES } from '../bi/bi-rules';
-
-type Db = ReturnType<typeof getScopedPrisma>;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const LISTA_MAX = 20; // limite de itens em listas operacionais
 
+type ContractRow = {
+  id: string;
+  studentId: string;
+  cycle: string;
+  endDate: string;
+};
+
+type StudentRow = { id: string; name: string };
+type WorkoutRow = { studentId: string; updatedAt: string };
+
 export class DashboardService {
-  private db: Db;
+  private readonly personalId: string;
 
   constructor(personalId: string) {
-    this.db = getScopedPrisma(personalId); // escopo obrigatório, vindo do contexto autenticado
+    if (!personalId) throw new Error('personalId obrigatório');
+    this.personalId = personalId;
   }
 
   /** Painel executivo: visão operacional em tempo real. */
@@ -20,68 +34,95 @@ export class DashboardService {
     const cutoffTreino = new Date(now.getTime() - BI_RULES.ALERTA_TREINO_SEM_ATUALIZACAO_DIAS * DAY_MS);
     const vencendoAte = new Date(now.getTime() + BI_RULES.CONTRATO_VENCENDO_DIAS * DAY_MS);
 
-    const [alunosAtivos, parcelasVencidas, contratosVencendo, funil, examesPendentes, alunosAtivosComTreino] =
+    const [alunosAtivos, parcelasVencidas, contratosVencendo, examesPendentes, alunosAtivosComTreino, contagensFunil] =
       await Promise.all([
-        this.db.student.count({ where: { active: true, anonymizedAt: null } }),
+        countTenantRows('students', this.personalId, { active: 'eq.true', anonymizedAt: 'is.null' }),
 
-        this.db.paymentParcel.findMany({
-          where: {
-            status: { in: [ParcelStatus.PENDING, ParcelStatus.FAILED] },
-            dueDate: { lt: cutoffInadimplencia },
-          },
-          select: { contract: { select: { studentId: true } } },
+        selectTenantRows<{ contractId: string }>('payment_parcels', this.personalId, {
+          select: 'contractId',
+          status: `in.(${ParcelStatus.PENDING},${ParcelStatus.FAILED})`,
+          dueDate: `lt.${cutoffInadimplencia.toISOString()}`,
         }),
 
-        this.db.contract.findMany({
-          where: {
-            status: ContractStatus.SIGNED,
-            endDate: { gte: now, lte: vencendoAte },
-          },
-          orderBy: { endDate: 'asc' },
-          take: LISTA_MAX,
-          select: {
-            id: true,
-            cycle: true,
-            endDate: true,
-            student: { select: { id: true, name: true } },
-          },
+        selectTenantRows<ContractRow>('contracts', this.personalId, {
+          select: 'id,studentId,cycle,endDate',
+          status: `eq.${ContractStatus.SIGNED}`,
+          and: `(endDate.gte.${now.toISOString()},endDate.lte.${vencendoAte.toISOString()})`,
+          order: 'endDate.asc',
+          limit: String(LISTA_MAX),
         }),
 
-        this.db.lead.groupBy({
-          by: ['status'],
-          _count: { _all: true },
+        countTenantRows('exams', this.personalId, {
+          status: `eq.${ExamStatus.PENDING_REVIEW}`,
         }),
 
-        this.db.exam.count({ where: { status: ExamStatus.PENDING_REVIEW } }),
-
-        this.db.student.findMany({
-          where: { active: true, anonymizedAt: null },
-          select: {
-            id: true,
-            name: true,
-            workouts: {
-              where: { active: true },
-              orderBy: { updatedAt: 'desc' },
-              take: 1,
-              select: { updatedAt: true },
-            },
-          },
+        selectTenantRows<StudentRow>('students', this.personalId, {
+          select: 'id,name',
+          active: 'eq.true',
+          anonymizedAt: 'is.null',
         }),
+
+        Promise.all([
+          LeadStatus.NEW,
+          LeadStatus.CONTACTED,
+          LeadStatus.QUALIFIED,
+          LeadStatus.CONVERTED,
+          LeadStatus.DISQUALIFIED,
+        ].map(async (status) => [
+          status,
+          await countTenantRows('leads', this.personalId, { status: `eq.${status}` }),
+        ] as const)),
       ]);
 
-    // Inadimplentes: alunos ativos com ao menos uma parcela Pix vencida além do limite
-    const idsInadimplentes = [...new Set(parcelasVencidas.map((p) => p.contract.studentId))];
-    const inadimplentes = await this.db.student.count({
-      where: { active: true, anonymizedAt: null, id: { in: idsInadimplentes } },
-    });
+    const upcomingStudentIds = [...new Set(contratosVencendo.map((contract) => contract.studentId))];
+    const alunosDosContratos = await selectTenantRowsByValues<StudentRow>(
+      'students',
+      this.personalId,
+      'id',
+      upcomingStudentIds,
+      { select: 'id,name' },
+    );
+    const nomePorAluno = new Map(alunosDosContratos.map((student) => [student.id, student.name]));
+
+    const contractIds = [...new Set(parcelasVencidas.map((parcel) => parcel.contractId))];
+    const contratosInadimplentes = await selectTenantRowsByValues<{ studentId: string }>(
+      'contracts',
+      this.personalId,
+      'id',
+      contractIds,
+      { select: 'studentId' },
+    );
+    const idsInadimplentes = [...new Set(contratosInadimplentes.map((contract) => contract.studentId))];
+    const inadimplentes = await countTenantRowsByValues(
+      'students',
+      this.personalId,
+      'id',
+      idsInadimplentes,
+      { active: 'eq.true', anonymizedAt: 'is.null' },
+    );
+
+    const studentIds = alunosAtivosComTreino.map((student) => student.id);
+    const workouts = await selectTenantRowsByValues<WorkoutRow>(
+      'workouts',
+      this.personalId,
+      'studentId',
+      studentIds,
+      { select: 'studentId,updatedAt', active: 'eq.true', order: 'updatedAt.desc' },
+    );
+    const latestWorkoutByStudent = new Map<string, Date>();
+    for (const workout of workouts) {
+      if (!latestWorkoutByStudent.has(workout.studentId)) {
+        latestWorkoutByStudent.set(workout.studentId, new Date(workout.updatedAt));
+      }
+    }
 
     // Treinos sem atualização: sem treino ativo ou último treino antigo demais
     const semAtualizacao = alunosAtivosComTreino.filter((s) => {
-      const ultimo = s.workouts[0]?.updatedAt;
+      const ultimo = latestWorkoutByStudent.get(s.id);
       return !ultimo || ultimo < cutoffTreino;
     });
 
-    const porStatus = Object.fromEntries(funil.map((f) => [f.status, f._count._all])) as Record<LeadStatus, number>;
+    const porStatus = Object.fromEntries(contagensFunil) as Record<LeadStatus, number>;
     const count = (s: LeadStatus) => porStatus[s] ?? 0;
 
     return {
@@ -93,13 +134,19 @@ export class DashboardService {
       contratosVencendo: {
         janelaDias: BI_RULES.CONTRATO_VENCENDO_DIAS,
         total: contratosVencendo.length,
-        itens: contratosVencendo.map((c) => ({
-          contratoId: c.id,
-          alunoId: c.student.id,
-          alunoNome: c.student.name,
-          ciclo: c.cycle,
-          fimEm: c.endDate,
-        })),
+        itens: contratosVencendo.map((contract) => {
+          const studentName = nomePorAluno.get(contract.studentId);
+          if (studentName === undefined) {
+            throw new Error(`Aluno ${contract.studentId} não encontrado para contrato ${contract.id}`);
+          }
+          return {
+            contratoId: contract.id,
+            alunoId: contract.studentId,
+            alunoNome: studentName,
+            ciclo: contract.cycle,
+            fimEm: new Date(contract.endDate),
+          };
+        }),
       },
       funilLeads: {
         abertos: count(LeadStatus.NEW) + count(LeadStatus.CONTACTED) + count(LeadStatus.QUALIFIED),
@@ -114,7 +161,7 @@ export class DashboardService {
           itens: semAtualizacao.slice(0, LISTA_MAX).map((s) => ({
             alunoId: s.id,
             alunoNome: s.name,
-            ultimaAtualizacao: s.workouts[0]?.updatedAt ?? null,
+            ultimaAtualizacao: latestWorkoutByStudent.get(s.id) ?? null,
           })),
         },
       },

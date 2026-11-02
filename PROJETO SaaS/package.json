@@ -7,18 +7,42 @@
     "test": "tests"
   },
   "scripts": {
-    "prisma:generate": "./node_modules/.bin/prisma generate",
-    "prisma:migrate": "./node_modules/.bin/prisma migrate dev --name init_fase7",
-    "prisma:execute": "./node_modules/.bin/prisma db execute --file prisma/migrations/manual_integridade/migration.sql",
-    "test:isolation": "vitest run tests/isolation.test.ts"
+    "dev": "concurrently --kill-others-on-fail \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "tsx watch src/server.ts",
+    "dev:web": "vite --host 127.0.0.1",
+    "start": "tsx src/server.ts",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "prisma:generate": "prisma generate",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:supabase-auth": "prisma db execute --file prisma/migrations/manual_supabase_auth_identity/migration.sql",
+    "prisma:migrate": "prisma migrate dev --name init_fase7",
+    "prisma:execute": "prisma db execute --file prisma/migrations/manual_integridade/migration.sql",
+    "test:isolation": "vitest run --config vitest.config.mts tests/isolation.test.ts",
+    "test:auth": "vitest run --config vitest.unit.config.mts tests/auth.test.ts",
+    "test:supabase-rest": "vitest run --config vitest.unit.config.mts tests/supabase-rest.test.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.3.0",
+    "@types/supertest": "^6.0.3",
     "@prisma/client": "^5.x.x",
+    "concurrently": "^9.2.1",
     "prisma": "^5.x.x",
+    "supertest": "^7.1.4",
+    "tsx": "^4.20.6",
+    "typescript": "^5.8.3",
+    "vite": "^8.3.4",
     "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.80.0",
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
+    "zod": "^3.25.76"
   }
 }

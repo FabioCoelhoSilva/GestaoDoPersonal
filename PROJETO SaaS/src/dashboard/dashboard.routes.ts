@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { CycleDuration } from '@prisma/client';
 import { DashboardService } from './dashboard.service';
 import { BiMetricsService } from '../bi/bi-metrics.service';
-import { logAccess } from '../db/scoped-prisma';
+import { logAccess } from '../db/supabase-rest';
 
 // Pressuposto: middleware de autenticação existente preenche req.auth a partir da sessão/JWT.
 // personalId NUNCA vem de body, query ou params.

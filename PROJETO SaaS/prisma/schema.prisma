@@ -71,6 +71,7 @@ model User {
   role         Role
   provider     AuthProvider
   providerSub  String?      @unique // identificador do Gov.br / OAuth
+  supabaseUserId String?    @unique
   passwordHash String?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt

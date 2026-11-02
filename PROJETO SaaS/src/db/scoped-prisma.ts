@@ -92,3 +92,22 @@ export async function logAccess(entry: {
 export function findUserById(id: string) {
   return basePrisma.user.findUnique({ where: { id }, include: { personal: true, student: true } });
 }
+
+export function findUserBySupabaseId(supabaseUserId: string) {
+  return basePrisma.user.findUnique({
+    where: { supabaseUserId },
+    include: { personal: true },
+  });
+}
+
+export function logScopedAccess(entry: {
+  userId: string;
+  personalId: string;
+  action: string;
+  resource: string;
+  resourceId?: string;
+  purpose?: string;
+  ip?: string;
+}) {
+  return basePrisma.accessLog.create({ data: entry });
+}
