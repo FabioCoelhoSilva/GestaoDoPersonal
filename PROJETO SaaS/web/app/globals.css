@@ -730,6 +730,43 @@ body {
 .workout-training-days { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
 .workout-training-days span { padding: 4px 7px; border: 1px solid rgba(163,230,53,.13); border-radius: 14px; background: rgba(163,230,53,.055); color: #d9f99d; font-size: 8px; }
 .appointment-workout { color: #d9f99d !important; }
+.profile-billing-grid { display: grid; grid-template-columns: minmax(270px, .75fr) minmax(0, 1.3fr); align-items: start; gap: 14px; }
+.profile-invoices { grid-column: 1 / -1; }
+.billing-profile-summary { display: grid; gap: 7px; margin: 4px 0 15px; padding: 14px; border: 1px solid rgba(255,255,255,.07); border-radius: 9px; background: rgba(9,9,11,.3); }
+.billing-profile-summary strong { color: #f4f4f5; font-size: 13px; }
+.billing-profile-summary span { color: #a1a1aa; font-size: 10px; line-height: 1.5; }
+.billing-plan-options { display: grid; gap: 8px; margin-top: 17px; }
+.billing-plan-options h3 { margin: 0 0 2px; color: #c4c4ca; font-size: 10px; }
+.billing-plan-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px; border: 1px solid rgba(255,255,255,.07); border-radius: 8px; background: rgba(9,9,11,.25); }
+.billing-plan-row strong { color: #e4e4e7; font-size: 10px; }
+.reports-filter { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 14px; }
+.reports-filter .panel-kicker { color: #a3e635; font-size: 8px; font-weight: 700; letter-spacing: 1px; }
+.reports-filter p { margin: 6px 0 0; color: #8b8b94; font-size: 9px; }
+.reports-filter-form { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.reports-filter-form label { color: #a1a1aa; font-size: 9px; }
+.reports-filter-form input { min-height: 34px; padding: 5px 8px; border: 1px solid rgba(255,255,255,.1); border-radius: 7px; background: #111113; color: #e4e4e7; font: inherit; font-size: 9px; }
+.reports-filter-form .button { min-height: 34px; font-size: 9px; }
+.reports-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.reports-metrics .metric-card { min-width: 0; }
+.reports-metrics .metric-value { font-size: clamp(18px, 2vw, 25px); }
+.reports-students { display: grid; gap: 12px; }
+.reports-student-list { display: grid; gap: 10px; }
+.reports-student-card { min-width: 0; padding: 13px; border: 1px solid rgba(255,255,255,.07); border-radius: 10px; background: rgba(9,9,11,.25); }
+.reports-student-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.reports-student-heading h3 { margin: 4px 0 0; color: #f4f4f5; font-size: 12px; }
+.reports-student-heading .panel-kicker { color: #a3e635; font-size: 8px; letter-spacing: 1px; }
+.reports-student-stats { display: flex; flex-wrap: wrap; gap: 7px; margin: 12px 0; }
+.reports-student-stats span { padding: 6px 8px; border: 1px solid rgba(255,255,255,.06); border-radius: 7px; color: #a1a1aa; font-size: 8px; }
+.reports-student-stats strong { color: #e4e4e7; font-size: 10px; }
+.reports-table-scroll { overflow-x: auto; }
+.reports-table { width: 100%; border-collapse: collapse; text-align: left; }
+.reports-table th, .reports-table td { padding: 8px 9px; border-bottom: 1px solid rgba(255,255,255,.06); color: #a1a1aa; font-size: 9px; white-space: nowrap; }
+.reports-table thead th { color: #71717a; font-size: 8px; font-weight: 600; }
+.reports-table tbody th { color: #e4e4e7; font-weight: 600; }
+.reports-positive { color: #bef264 !important; }
+.reports-negative { color: #fca5a5 !important; }
+.reports-no-evolution, .reports-footnote { margin: 10px 0 0; color: #777780; font-size: 9px; line-height: 1.6; }
+.reports-footnote { margin: 12px 3px 0; }
 .workout-form-panel { max-height: calc(100vh - 128px); overflow-y: auto; scrollbar-color: #3f3f46 transparent; scrollbar-width: thin; }
 .exercise-section-heading { display: flex; align-items: center; justify-content: space-between; margin: 8px 0 2px; }
 .exercise-section-heading > div { display: grid; gap: 4px; }
@@ -773,6 +810,9 @@ body {
 }
 @media (max-width: 760px) {
   .workspace-content-grid, .workout-layout { grid-template-columns: 1fr; }
+  .profile-billing-grid { grid-template-columns: 1fr; }
+  .reports-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .reports-filter { align-items: flex-start; flex-direction: column; }
   .workout-form-panel { max-height: none; overflow: visible; }
   .workspace-intro { margin-top: -6px; }
   .workspace-card { flex-wrap: wrap; }

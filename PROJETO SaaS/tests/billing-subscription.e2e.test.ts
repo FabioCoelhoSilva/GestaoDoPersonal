@@ -264,6 +264,88 @@ describe('billing subscription HTTP E2E', () => {
     });
   });
 
+  it('updates pending, active and canceled subscription states through signed Stripe webhooks', async () => {
+    const requestSubscriptionEvent = async (
+      eventId: string,
+      eventType: string,
+      created: number,
+      status: string,
+    ) => {
+      const event = {
+        id: eventId,
+        type: eventType,
+        created,
+        data: {
+          object: {
+            id: `sub_billing_b_${suffix}`,
+            customer: `cus_billing_${suffix}`,
+            status,
+            current_period_end: created + 86_400,
+            cancel_at_period_end: status === 'canceled',
+            metadata: { personalId: tenantBId },
+            items: { data: [{ price: { id: `price_billing_${suffix}` } }] },
+          },
+        },
+      };
+      const rawBody = JSON.stringify(event);
+      const signature = createHmac('sha256', testWebhookSecret)
+        .update(`${created}.${rawBody}`)
+        .digest('hex');
+      return fetch(`${baseUrl}/webhooks/stripe`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'stripe-signature': `t=${created},v1=${signature}`,
+        },
+        body: rawBody,
+      });
+    };
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const pending = await requestSubscriptionEvent(
+      `evt_billing_pending_${suffix}`,
+      'customer.subscription.updated',
+      timestamp,
+      'incomplete',
+    );
+    expect(pending.status).toBe(200);
+    expect(await prisma.billingSubscription.findUniqueOrThrow({
+      where: { personalId: tenantBId },
+    })).toMatchObject({ status: BillingStatus.INCOMPLETE });
+    expect((await (await fetch(`${baseUrl}/api/billing/me`, {
+      headers: { 'x-tenant': 'b' },
+    })).json() as { data: { subscription: { status: string } } }).data.subscription.status).toBe('INCOMPLETE');
+
+    const active = await requestSubscriptionEvent(
+      `evt_billing_active_again_${suffix}`,
+      'customer.subscription.updated',
+      timestamp + 1,
+      'active',
+    );
+    expect(active.status).toBe(200);
+    expect(await prisma.billingSubscription.findUniqueOrThrow({
+      where: { personalId: tenantBId },
+    })).toMatchObject({ status: BillingStatus.ACTIVE });
+
+    const canceled = await requestSubscriptionEvent(
+      `evt_billing_canceled_${suffix}`,
+      'customer.subscription.deleted',
+      timestamp + 2,
+      'canceled',
+    );
+    expect(canceled.status).toBe(200);
+    expect(await prisma.billingSubscription.findUniqueOrThrow({
+      where: { personalId: tenantBId },
+    })).toMatchObject({ status: BillingStatus.CANCELED });
+    const overviewResponse = await fetch(`${baseUrl}/api/billing/me`, {
+      headers: { 'x-tenant': 'b' },
+    });
+    expect(overviewResponse.status).toBe(200);
+    await expect(overviewResponse.json()).resolves.toMatchObject({
+      data: { subscription: { status: 'CANCELED' }, accessAllowed: false },
+    });
+  });
+
   it('keeps Stripe state committed and webhook successful when Resend repeatedly fails', async () => {
       const timestamp = Math.floor(Date.now() / 1000);
       const event = {

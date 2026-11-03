@@ -22,6 +22,7 @@ const subscription = {
   status: BillingStatus.ACTIVE,
   currentPeriodEnd: new Date('2027-01-01T00:00:00.000Z'),
   cancelAtPeriodEnd: false,
+  stripeCustomerId: 'cus_1',
   plan: {
     name: 'Teste',
     maxStudents: 2,
@@ -49,6 +50,7 @@ describe('billing subscription service', () => {
         status: BillingStatus.ACTIVE,
         currentPeriodEnd: subscription.currentPeriodEnd,
         cancelAtPeriodEnd: false,
+        stripeCustomerLinked: true,
       },
       plan: { name: 'Teste', maxStudents: 2, maxWorkouts: 3 },
       usage: { activeStudents: 1, activeWorkouts: 1 },

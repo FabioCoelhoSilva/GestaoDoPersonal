@@ -839,6 +839,28 @@ export function findPersonalBillingEmail(personalId: string) {
   });
 }
 
+export function readBillingSubscriptionForManagement(personalId: string) {
+  return scopedPrisma(personalId).billingSubscription.findUnique({
+    where: { personalId },
+    select: { stripeCustomerId: true, stripeSubscriptionId: true, status: true },
+  });
+}
+
+export function listActiveStripePlans() {
+  return basePrisma.plan.findMany({
+    where: { active: true },
+    select: { id: true, name: true, stripePriceId: true },
+    orderBy: { name: 'asc' },
+  });
+}
+
+export function findActiveStripePlan(planId: string) {
+  return basePrisma.plan.findFirst({
+    where: { id: planId, active: true },
+    select: { id: true, name: true, stripePriceId: true },
+  });
+}
+
 // Autenticação: busca de usuário pelo cliente base (não é dado de tenant).
 export function findUserById(id: string) {
   return basePrisma.user.findUnique({ where: { id }, include: { personal: true, student: true } });

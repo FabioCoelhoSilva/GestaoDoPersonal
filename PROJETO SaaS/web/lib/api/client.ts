@@ -17,6 +17,7 @@ export type BillingOverview = {
     status: string;
     currentPeriodEnd: string | null;
     cancelAtPeriodEnd: boolean;
+    stripeCustomerLinked: boolean;
   } | null;
   plan: {
     name: string;

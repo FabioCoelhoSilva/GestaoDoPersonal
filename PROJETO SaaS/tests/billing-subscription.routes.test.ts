@@ -8,12 +8,14 @@ import {
   BillingOverview,
 } from '../src/billing/subscription.service';
 import { createSubscriptionAccessMiddleware } from '../src/billing/subscription.middleware';
+import { StripeBillingActions } from '../src/billing/subscription.routes';
 
 const overview: BillingOverview = {
   subscription: {
     status: 'ACTIVE',
     currentPeriodEnd: new Date('2027-01-01T00:00:00.000Z'),
     cancelAtPeriodEnd: false,
+    stripeCustomerLinked: true,
   },
   plan: { name: 'Pro', maxStudents: 20, maxWorkouts: 50 },
   usage: { activeStudents: 2, activeWorkouts: 4 },
@@ -29,6 +31,12 @@ let baseUrl: string;
 const readOverview = vi.fn(async () => overview);
 const writeAudit = vi.fn(async () => undefined);
 const checkAccess = vi.fn(async () => overview);
+const stripeActions: StripeBillingActions = {
+  listPlans: vi.fn(async () => [{ id: 'plan-1', name: 'Pro' }]),
+  listInvoices: vi.fn(async () => []),
+  createPortal: vi.fn(async () => ({ url: 'https://billing.stripe.com/session/test' })),
+  createCheckout: vi.fn(async () => ({ url: 'https://checkout.stripe.com/c/pay/test' })),
+};
 
 const authMiddleware: RequestHandler = (req, _res, next) => {
   req.tenantId = requestTenantId;
@@ -52,10 +60,11 @@ beforeEach(async () => {
   vi.clearAllMocks();
 
   const app = express();
+  app.use(express.json());
   app.use('/api', authMiddleware);
   app.use(
     '/api/billing',
-    createSubscriptionRouter({ getOverview: readOverview }, writeAudit),
+    createSubscriptionRouter({ getOverview: readOverview }, writeAudit, stripeActions),
   );
   app.get('/api/protected', createSubscriptionAccessMiddleware(checkAccess), (_req, res) => {
     res.status(200).json({ ok: true });
@@ -121,6 +130,53 @@ describe('billing subscription HTTP routes', () => {
     await expect(response.json()).resolves.toMatchObject({
       code: 'SUBSCRIPTION_INACTIVE',
     });
+  });
+
+  it('serves billing plans and Stripe invoices only for authenticated personals', async () => {
+    const [plans, invoices] = await Promise.all([
+      fetch(`${baseUrl}/api/billing/plans`),
+      fetch(`${baseUrl}/api/billing/invoices`),
+    ]);
+    expect(plans.status).toBe(200);
+    await expect(plans.json()).resolves.toEqual({ data: [{ id: 'plan-1', name: 'Pro' }] });
+    expect(invoices.status).toBe(200);
+    await expect(invoices.json()).resolves.toEqual({ data: [] });
+    expect(stripeActions.listInvoices).toHaveBeenCalledWith('tenant-1');
+
+    role = 'STUDENT';
+    expect((await fetch(`${baseUrl}/api/billing/invoices`)).status).toBe(403);
+    expect((await fetch(`${baseUrl}/api/billing/plans`)).status).toBe(403);
+  });
+
+  it('creates tenant-bound checkout and portal sessions without accepting redirect URLs', async () => {
+    const checkout = await fetch(`${baseUrl}/api/billing/checkout`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ planId: 'plan-1' }),
+    });
+    expect(checkout.status).toBe(200);
+    await expect(checkout.json()).resolves.toEqual({
+      data: { url: 'https://checkout.stripe.com/c/pay/test' },
+    });
+    expect(stripeActions.createCheckout).toHaveBeenCalledWith('tenant-1', 'plan-1');
+
+    const portal = await fetch(`${baseUrl}/api/billing/portal`, { method: 'POST' });
+    expect(portal.status).toBe(200);
+    expect(stripeActions.createPortal).toHaveBeenCalledWith('tenant-1');
+
+    const injectedReturnUrl = await fetch(`${baseUrl}/api/billing/portal`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ returnUrl: 'https://attacker.example' }),
+    });
+    expect(injectedReturnUrl.status).toBe(400);
+
+    const invalidPlan = await fetch(`${baseUrl}/api/billing/checkout`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ planId: 'plan-1', tenantId: 'tenant-other' }),
+    });
+    expect(invalidPlan.status).toBe(400);
   });
 
   it('rejects requests whose tenant does not match the authenticated context', async () => {

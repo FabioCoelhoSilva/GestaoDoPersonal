@@ -15,6 +15,7 @@ import { apiErrorHandler } from './middleware/api-error-handler';
 import { onboardingRouter } from './onboarding/onboarding.routes';
 import { paymentRouter } from './payments/payment.routes';
 import { appointmentRouter } from './appointments/appointment.routes';
+import { performanceReportsRouter } from './reports/performance-reports.routes';
 
 const onboardingAuthMiddleware = createSupabaseAuthMiddleware({ allowUnprovisioned: true });
 
@@ -50,6 +51,7 @@ export function createApp(
       '/api/workout-executions',
       '/api/payments',
       '/api/appointments',
+      '/api/reports',
     ],
     subscriptionAccessMiddleware,
   );
@@ -58,6 +60,7 @@ export function createApp(
   app.use('/api', workoutExecutionRouter);
   app.use('/api/payments', paymentRouter);
   app.use('/api/appointments', appointmentRouter);
+  app.use('/api/reports', performanceReportsRouter);
   app.use('/api/profile', personalProfileRouter);
 
   app.use((_req, res) => {

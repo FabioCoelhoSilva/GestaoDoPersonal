@@ -20,15 +20,15 @@ const destinations = [
   },
   {
     title: 'Subscrição',
-    description: 'Ver o seu plano e estado de acesso',
-    href: '/dashboard#billing',
+    description: 'Gerir subscrição, método de pagamento e faturas',
+    href: '/perfil',
     keywords: ['subscrição', 'assinatura', 'plano', 'billing', 'pagamento', 'faturação'],
     icon: '◇',
   },
   {
     title: 'Pagamentos',
     description: 'Gerir contratos e mensalidades dos alunos',
-    href: '/dashboard/payments',
+    href: '/pagamentos',
     keywords: ['pagamento', 'pagamentos', 'mensalidade', 'mensalidades', 'cobrar', 'faturação', 'contrato'],
     icon: '€',
   },
@@ -38,6 +38,13 @@ const destinations = [
     href: '/agenda',
     keywords: ['agenda', 'aula', 'aulas', 'sessão', 'sessões', 'horário', 'marcar'],
     icon: '◷',
+  },
+  {
+    title: 'Relatórios',
+    description: 'Ver evolução, frequência e métricas financeiras',
+    href: '/relatorios',
+    keywords: ['relatório', 'relatórios', 'métricas', 'evolução', 'frequência', 'desempenho', 'financeiro'],
+    icon: '▥',
   },
 ];
 

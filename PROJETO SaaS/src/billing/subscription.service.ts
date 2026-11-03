@@ -8,6 +8,7 @@ export type BillingOverview = {
     status: BillingStatus;
     currentPeriodEnd: Date | null;
     cancelAtPeriodEnd: boolean;
+    stripeCustomerLinked: boolean;
   } | null;
   plan: {
     name: string;
@@ -59,6 +60,7 @@ export async function getBillingOverview(tenantId: string): Promise<BillingOverv
         status: true,
         currentPeriodEnd: true,
         cancelAtPeriodEnd: true,
+        stripeCustomerId: true,
         plan: {
           select: {
             name: true,
@@ -92,6 +94,7 @@ export async function getBillingOverview(tenantId: string): Promise<BillingOverv
           status: subscription.status,
           currentPeriodEnd: subscription.currentPeriodEnd,
           cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+          stripeCustomerLinked: Boolean(subscription.stripeCustomerId),
         }
       : null,
     plan,

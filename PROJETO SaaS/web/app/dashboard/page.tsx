@@ -117,7 +117,8 @@ export default function DashboardPage() {
           <a className="side-link active" href="#overview"><span aria-hidden="true">◫</span> Visão geral</a>
           <Link className="side-link" href="/dashboard/students"><span aria-hidden="true">♙</span> Alunos</Link>
           <Link className="side-link" href="/treinos"><span aria-hidden="true">▤</span> Treinos</Link>
-          <Link className="side-link" href="/dashboard/payments"><span aria-hidden="true">◇</span> Pagamentos</Link>
+          <Link className="side-link" href="/relatorios"><span aria-hidden="true">▥</span> Relatórios</Link>
+          <Link className="side-link" href="/pagamentos"><span aria-hidden="true">◇</span> Pagamentos</Link>
           <Link className="side-link" href="/agenda"><span aria-hidden="true">◷</span> Agenda</Link>
         </nav>
         <div className="sidebar-bottom">
@@ -235,7 +236,7 @@ export default function DashboardPage() {
               <h3>Subscrição e plano</h3>
               <p>{billing?.plan ? `Plano ${billing.plan.name}` : 'Consulte o estado e os limites do seu plano.'}</p>
             </div>
-            {billing?.subscription && <span className="section-status">{billing.subscription.status}</span>}
+            <Link className="workspace-card-link" href="/perfil">Gerir plano e faturas ↗</Link>
           </section>
           <section className="workspace-card">
             <div className="workspace-card-icon amber" aria-hidden="true">€</div>
@@ -244,7 +245,7 @@ export default function DashboardPage() {
               <h3>Pagamentos de alunos</h3>
               <p>Registe contratos e acompanhe mensalidades pendentes ou em atraso.</p>
             </div>
-            <Link className="workspace-card-link" href="/dashboard/payments">Gerir pagamentos ↗</Link>
+            <Link className="workspace-card-link" href="/pagamentos">Gerir pagamentos ↗</Link>
           </section>
           <section className="workspace-card">
             <div className="workspace-card-icon mint" aria-hidden="true">◷</div>
@@ -254,6 +255,15 @@ export default function DashboardPage() {
               <p>Marque sessões avulsas e evite conflitos de horário automaticamente.</p>
             </div>
             <Link className="workspace-card-link" href="/agenda">Abrir agenda ↗</Link>
+          </section>
+          <section className="workspace-card">
+            <div className="workspace-card-icon violet" aria-hidden="true">▥</div>
+            <div className="workspace-card-copy">
+              <p className="eyebrow">DESEMPENHO</p>
+              <h3>Relatórios e métricas</h3>
+              <p>Consulte evolução dos alunos, frequência de sessões e resumo financeiro.</p>
+            </div>
+            <Link className="workspace-card-link" href="/relatorios">Abrir relatórios ↗</Link>
           </section>
         </div>
         <footer className="dashboard-footer">Impetus: A evolução que não para<span>Feito para acompanhar o seu progresso.</span></footer>

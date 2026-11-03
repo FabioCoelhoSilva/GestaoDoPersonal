@@ -14,7 +14,7 @@ function getDestination(message: string) {
     return { label: 'Abrir treinos', href: '/treinos' };
   }
   if (/subscri|assinatura|pagamento|billing|fatura/.test(text)) {
-    return { label: 'Ver subscrição', href: '/dashboard#billing' };
+    return { label: 'Ver subscrição', href: '/perfil' };
   }
   return null;
 }
