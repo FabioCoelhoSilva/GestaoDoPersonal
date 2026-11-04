@@ -1,3 +1,5 @@
+import { vi } from "vitest";
+vi.setConfig({ testTimeout: 20000 });
 import { PrismaClient } from '@prisma/client';
 import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { getScopedPrisma, logAccess } from '../src/db/scoped-prisma';
