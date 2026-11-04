@@ -17,6 +17,10 @@ import { paymentRouter } from './payments/payment.routes';
 import { appointmentRouter } from './appointments/appointment.routes';
 import { performanceReportsRouter } from './reports/performance-reports.routes';
 
+// Importação dos routers principais
+import workoutRoutes from './workouts/workout.routes';
+import studentRoutes from './students/student.routes';
+
 const onboardingAuthMiddleware = createSupabaseAuthMiddleware({ allowUnprovisioned: true });
 
 export function createApp(
@@ -56,10 +60,15 @@ export function createApp(
     subscriptionAccessMiddleware,
   );
   app.use('/api/dashboard', personalOnly, subscriptionAccessMiddleware, dashboardRouter);
-  app.use('/api', studentWorkoutRouter);
-  app.use('/api', workoutExecutionRouter);
+  
+  // Registo dos routers protegidos pelas regras do SaaS
+  app.use('/api/workouts', workoutRoutes);
+  app.use('/api/students', studentRoutes);
   app.use('/api/payments', paymentRouter);
   app.use('/api/appointments', appointmentRouter);
+
+  app.use('/api', studentWorkoutRouter);
+  app.use('/api', workoutExecutionRouter);
   app.use('/api/reports', performanceReportsRouter);
   app.use('/api/profile', personalProfileRouter);
 

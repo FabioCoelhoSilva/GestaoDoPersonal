@@ -1,118 +1,95 @@
-import { NextFunction, Request, Response, Router } from 'express';
-import { z } from 'zod';
-import { AuthContext } from '../auth/auth-context';
+import 'dotenv/config';
+import express, { RequestHandler } from 'express';
 import {
-  BillingAccessDeniedError,
-  PlanLimitExceededError,
-} from '../billing/subscription.service';
-import {
-  confirmPayment,
-  createMonthlyContract,
-  listPayments,
-  PaymentRecordNotFoundError,
-  PaymentStateConflictError,
-  PaymentValidationError,
-} from './payment.service';
+  createSupabaseAuthMiddleware,
+  supabaseAuthMiddleware,
+} from './auth/supabase-auth.middleware';
+import { dashboardRouter } from './dashboard/dashboard.routes';
+import { studentWorkoutRouter } from './students/student-workout.routes';
+import { workoutExecutionRouter } from './students/workout-execution.routes';
+import { personalProfileRouter } from './profile/personal-profile.routes';
+import { stripeWebhookHandler } from './webhooks/stripe.routes';
+import { subscriptionRouter } from './billing/subscription.routes';
+import { subscriptionAccessMiddleware } from './billing/subscription.middleware';
+import { apiErrorHandler } from './middleware/api-error-handler';
+import { onboardingRouter } from './onboarding/onboarding.routes';
+import { paymentRouter } from './payments/payment.routes';
+import { appointmentRouter } from './appointments/appointment.routes';
+import { performanceReportsRouter } from './reports/performance-reports.routes';
 
-type AuthenticatedRequest = Request & { auth?: AuthContext; tenantId?: string };
+// Importação dos routers de treinos e alunos
+import workoutRoutes from './workouts/workout.routes';
+import studentRoutes from './students/student.routes';
 
-function requirePersonal(req: AuthenticatedRequest, res: Response) {
-  if (!req.auth) {
-    res.status(401).json({ error: 'Autenticação obrigatória' });
-    return null;
-  }
-  if (req.auth.role !== 'PERSONAL') {
-    res.status(403).json({ error: 'Acesso restrito ao personal do tenant' });
-    return null;
-  }
-  if (!req.tenantId || req.tenantId !== req.auth.tenantId) {
-    res.status(403).json({ error: 'Tenant autenticado inválido' });
-    return null;
-  }
-  return req.tenantId;
-}
+const onboardingAuthMiddleware = createSupabaseAuthMiddleware({ allowUnprovisioned: true });
 
-const createContractSchema = z.strictObject({
-  studentId: z.string().trim().min(1).max(64),
-  cycle: z.enum(['MONTHS_3', 'MONTHS_6', 'MONTHS_12']),
-  monthlyAmount: z.number().positive().max(1_000_000),
-  startDate: z.iso.datetime({ offset: true }),
-});
-
-function handlePaymentError(error: unknown, res: Response, next: NextFunction) {
-  if (error instanceof PaymentValidationError) {
-    return res.status(400).json({ error: error.message });
-  }
-  if (error instanceof PaymentRecordNotFoundError) {
-    return res.status(404).json({ error: error.message });
-  }
-  if (error instanceof PaymentStateConflictError) {
-    return res.status(409).json({ error: error.message });
-  }
-  if (error instanceof BillingAccessDeniedError) {
-    return res.status(402).json({ error: error.message, code: error.code });
-  }
-  if (error instanceof PlanLimitExceededError) {
-    return res.status(409).json({ error: error.message, code: 'PLAN_LIMIT_EXCEEDED' });
-  }
-  if (error instanceof Error && error.name === 'TenantStudentUnavailableError') {
-    return res.status(404).json({ error: error.message });
-  }
-  return next(error);
-}
-
-export function createPaymentRouter() {
-  const router = Router();
-
-  router.get('/', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    const tenantId = requirePersonal(req, res);
-    if (!tenantId) return;
-    const parsedFilter = z.enum(['PENDING', 'CONFIRMED', 'OVERDUE']).optional().safeParse(req.query.status);
-    if (!parsedFilter.success) return res.status(400).json({ error: 'status inválido' });
-    if (Object.keys(req.query).some((key) => key !== 'status')) {
-      return res.status(400).json({ error: 'Parâmetros de consulta inválidos' });
+export function createApp(
+  authMiddleware: RequestHandler = supabaseAuthMiddleware,
+  provisionAuthMiddleware: RequestHandler = onboardingAuthMiddleware,
+) {
+  const app = express();
+  const personalOnly: RequestHandler = (req, res, next) => {
+    if (!req.auth) return res.status(401).json({ error: 'Autenticação obrigatória' });
+    if (req.auth.role !== 'PERSONAL') {
+      return res.status(403).json({ error: 'Acesso restrito a personal autenticado' });
     }
+    return next();
+  };
 
-    try {
-      return res.status(200).json({ data: await listPayments(tenantId, parsedFilter.data) });
-    } catch (error) {
-      return handlePaymentError(error, res, next);
-    }
+  app.post(
+    '/webhooks/stripe',
+    express.raw({ type: 'application/json', limit: '1mb' }),
+    (req, res, next) => stripeWebhookHandler(req, res, next),
+  );
+
+  app.use(express.json({ limit: '1mb' }));
+
+  app.use('/api/onboarding', provisionAuthMiddleware, onboardingRouter);
+  app.use('/api', authMiddleware);
+  app.use('/api/billing', subscriptionRouter);
+  app.use(
+    [
+      '/api/students',
+      '/api/workouts',
+      '/api/workout-exercises',
+      '/api/workout-executions',
+      '/api/payments',
+      '/api/appointments',
+      '/api/reports',
+    ],
+    subscriptionAccessMiddleware,
+  );
+  app.use('/api/dashboard', personalOnly, subscriptionAccessMiddleware, dashboardRouter);
+  
+  // Registo dos routers principais protegidos pelas regras do SaaS
+  app.use('/api/workouts', workoutRoutes);
+  app.use('/api/students', studentRoutes);
+  app.use('/api/payments', paymentRouter);
+
+  app.use('/api', studentWorkoutRouter);
+  app.use('/api', workoutExecutionRouter);
+  app.use('/api/appointments', appointmentRouter);
+  app.use('/api/reports', performanceReportsRouter);
+  app.use('/api/profile', personalProfileRouter);
+
+  app.use((_req, res) => {
+    res.status(404).json({ error: 'Rota não encontrada' });
   });
 
-  router.post('/contracts', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    const tenantId = requirePersonal(req, res);
-    if (!tenantId) return;
-    const parsed = createContractSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ error: 'Dados do contrato inválidos', detalhes: parsed.error.flatten() });
-    }
+  app.use(apiErrorHandler);
 
-    try {
-      const contract = await createMonthlyContract(tenantId, parsed.data);
-      return res.status(201).json({ data: contract });
-    } catch (error) {
-      return handlePaymentError(error, res, next);
-    }
-  });
-
-  router.patch('/:paymentId/confirm', async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    const tenantId = requirePersonal(req, res);
-    if (!tenantId) return;
-    if (Object.keys(req.body ?? {}).length > 0) {
-      return res.status(400).json({ error: 'Esta rota não aceita corpo' });
-    }
-    const paymentId = z.string().trim().min(1).max(64).safeParse(req.params.paymentId);
-    if (!paymentId.success) return res.status(400).json({ error: 'paymentId inválido' });
-
-    try {
-      return res.status(200).json({ data: await confirmPayment(tenantId, paymentId.data) });
-    } catch (error) {
-      return handlePaymentError(error, res, next);
-    }
-  });
-
-  return router;
+  return app;
 }
 
-export const paymentRouter = createPaymentRouter();
+export function startServer() {
+  const port = Number(process.env.PORT ?? 3000);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('PORT deve ser um número entre 1 e 65535');
+  }
+
+  return createApp().listen(port, () => {
+    console.log(`Servidor iniciado na porta ${port}`);
+  });
+}
+
+if (require.main === module) startServer();
