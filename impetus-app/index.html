@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Impetus - Ecossistema Fitness de Alta Performance</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: { brand: { 500: '#10B981', 600: '#059669' } }
+                }
+            }
+        }
+    </script>
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between font-sans antialiased">
+
+    <!-- HEADER -->
+    <header class="w-full p-4 flex justify-between items-center border-b border-slate-800 bg-slate-900/50">
+        <span class="text-xl font-black tracking-wider text-emerald-400">IMPETUS</span>
+        <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">Ecossistema Pro</span>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main class="flex-1 flex flex-col items-center justify-center p-6 max-w-lg mx-auto w-full text-center">
+        
+        <!-- SELEÇÃO DE PERFIL -->
+        <div id="view-selection" class="w-full space-y-4">
+            <div class="space-y-2 mb-6">
+                <h1 class="text-3xl font-bold tracking-tight text-white">Acesse o seu Ecossistema</h1>
+                <p class="text-sm text-slate-400">Selecione o seu perfil para entrar na plataforma.</p>
+            </div>
+            
+            <div onclick="entrarPainelPersonal()" class="p-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-emerald-500 transition-all text-left cursor-pointer shadow-xl">
+                <span class="text-xs font-semibold uppercase tracking-wider text-emerald-400 block mb-1">Área B2B</span>
+                <h3 class="text-lg font-bold text-white">Sou Personal Trainer</h3>
+                <p class="text-xs text-slate-400 mt-1">Gestão, Fast-Lead e Avaliação.</p>
+            </div>
+
+            <div onclick="alert('Área do Aluno em breve!')" class="p-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-indigo-500 transition-all text-left cursor-pointer shadow-xl">
+                <span class="text-xs font-semibold uppercase tracking-wider text-indigo-400 block mb-1">Área B2C</span>
+                <h3 class="text-lg font-bold text-white">Sou Aluno</h3>
+                <p class="text-xs text-slate-400 mt-1">Treinos, Cargas e Impetus Coach AI.</p>
+            </div>
+        </div>
+
+        <!-- PAINEL DO PERSONAL (FAST LEAD) -->
+        <div id="view-dashboard" class="w-full hidden space-y-6 text-left">
+            <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-white">Impetus Avaliação & CRM</h2>
+                        <p class="text-xs text-slate-400">Captação rápida de leads e cálculo de IMC.</p>
+                    </div>
+                    <button onclick="voltarSelecao()" class="text-xs text-red-400 hover:underline cursor-pointer">Sair</button>
+                </div>
+
+                <form onsubmit="salvarLead(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Nome do Aluno / Prospect</label>
+                        <input type="text" id="lead-nome" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500" placeholder="Ex: João Silva">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">WhatsApp</label>
+                        <input type="text" id="lead-whatsapp" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500" placeholder="(84) 99999-9999">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Peso (kg)</label>
+                            <input type="number" step="0.1" id="lead-peso" required oninput="calcularImc()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500" placeholder="75.0">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">Estatura (m)</label>
+                            <input type="number" step="0.01" id="lead-estatura" required oninput="calcularImc()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500" placeholder="1.75">
+                        </div>
+                    </div>
+
+                    <div id="imc-box" class="bg-slate-950 p-3 rounded-xl border border-slate-800 hidden flex justify-between items-center text-xs">
+                        <span class="text-slate-400">IMC: <strong id="imc-val" class="text-emerald-400">0.0</strong></span>
+                        <span id="imc-class" class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-medium">Normal</span>
+                    </div>
+
+                    <button type="submit" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold transition-all shadow-lg cursor-pointer">Salvar Lead no Supabase</button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="w-full p-4 text-center text-xs text-slate-500 border-t border-slate-800">
+        Impetus Architecture SaaS &bull; PWA Ready
+    </footer>
+
+    <!-- SCRIPT -->
+    <script>
+        const SUPABASE_URL = 'https://hasthbszvmfxtrkakzrz.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_JkSYWHLS9qD_meYwfq1KHQ_q46lX1Gm';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        function entrarPainelPersonal() {
+            document.getElementById('view-selection').classList.add('hidden');
+            document.getElementById('view-dashboard').classList.remove('hidden');
+        }
+
+        function voltarSelecao() {
+            document.getElementById('view-dashboard').classList.add('hidden');
+            document.getElementById('view-selection').classList.remove('hidden');
+        }
+
+        function calcularImc() {
+            const peso = parseFloat(document.getElementById('lead-peso').value);
+            const estatura = parseFloat(document.getElementById('lead-estatura').value);
+            const box = document.getElementById('imc-box');
+            const valEl = document.getElementById('imc-val');
+            const classEl = document.getElementById('imc-class');
+
+            if (peso > 0 && estatura > 0) {
+                const imc = peso / (estatura * estatura);
+                valEl.innerText = imc.toFixed(1);
+                box.classList.remove('hidden');
+                classEl.innerText = imc < 18.5 ? 'Baixo Peso' : imc < 25 ? 'Normal' : imc < 30 ? 'Sobrepeso' : 'Obesidade';
+            } else {
+                box.classList.add('hidden');
+            }
+        }
+
+        async function salvarLead(event) {
+            event.preventDefault();
+            const nome = document.getElementById('lead-nome').value;
+            const whatsapp = document.getElementById('lead-whatsapp').value;
+            const peso = document.getElementById('lead-peso').value;
+            const estatura = document.getElementById('lead-estatura').value;
+
+            // Insere na tabela utilizando um ID genérico padrão para testes locais rápidos
+            const { error } = await supabaseClient.from('leads_fast').insert([
+                {
+                    personal_id: '00000000-0000-0000-0000-000000000000',
+                    nome: nome,
+                    whatsapp: whatsapp,
+                    peso_atual: parseFloat(peso),
+                    estatura: parseFloat(estatura)
+                }
+            ]);
+
+            if (error) {
+                alert('Erro ao salvar no Supabase: ' + error.message);
+                return;
+            }
+
+            alert('Lead cadastrado com sucesso na base de dados! 🚀');
+            document.getElementById('lead-nome').value = '';
+            document.getElementById('lead-whatsapp').value = '';
+            document.getElementById('lead-peso').value = '';
+            document.getElementById('lead-estatura').value = '';
+            document.getElementById('imc-box').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
