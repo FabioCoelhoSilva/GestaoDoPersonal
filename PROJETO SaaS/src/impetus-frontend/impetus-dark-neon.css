@@ -1,0 +1,50 @@
+/* ================================================================= *
+ * IMPETUS SAAS - DESIGN SYSTEM: DARK NEON (High-Performance UI)     *
+ * ================================================================= */
+
+:root {
+  --impetus-bg: #0b0f19;
+  --impetus-card-bg: rgba(19, 24, 34, 0.75);
+  --impetus-border: rgba(255, 255, 255, 0.08);
+  --impetus-neon-green: #00f2fe;
+  --impetus-accent: #4facfe;
+  --impetus-text-primary: #f8fafc;
+  --impetus-text-secondary: #94a3b8;
+}
+
+body.impetus-dark-theme {
+  background-color: var(--impetus-bg);
+  color: var(--impetus-text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Cartões com efeito Glassmorphism de alta performance */
+.impetus-card {
+  background: var(--impetus-card-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--impetus-border);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+/* Botões de Ação Rápida com toque Neon */
+.impetus-btn-primary {
+  background: linear-gradient(135deg, var(--impetus-accent) 0%, var(--impetus-neon-green) 100%);
+  color: #0b0f19;
+  font-weight: 700;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 24px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.impetus-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 20px rgba(0, 242, 254, 0.4);
+}

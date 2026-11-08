@@ -1,0 +1,101 @@
+<!-- ================================================================= *
+ * IMPETUS SAAS - COMPONENTE: IMPETUS SHARE (Stories 9:16)            *
+ * ================================================================= -->
+<div id="impetus-story-card" class="impetus-story-container">
+  <div class="impetus-story-header">
+    <span class="impetus-brand-badge">⚡ IMPETUS FITNESS</span>
+    <span class="impetus-date">Treino Concluído</span>
+  </div>
+
+  <div class="impetus-story-body">
+    <h2 class="impetus-title">MISSÃO CUMPRIDA</h2>
+    <div class="impetus-metric-box">
+      <span class="metric-label">Volume Total</span>
+      <span class="metric-value" id="val-volume">12.450 kg</span>
+    </div>
+    <div class="impetus-metric-box">
+      <span class="metric-label">Exercícios</span>
+      <span class="metric-value" id="val-exercises">8 / 8</span>
+    </div>
+  </div>
+
+  <div class="impetus-story-footer">
+    <p class="impetus-coach-tag">Prescrição: Team Fábio Coelho</p>
+  </div>
+</div>
+
+<style>
+  /* Proporção Exata 9:16 para Stories do Instagram/WhatsApp */
+  .impetus-story-container {
+    width: 360px;
+    height: 640px;
+    background: linear-gradient(135deg, #0b0f19 0%, #131822 100%);
+    border: 2px solid rgba(0, 242, 254, 0.2);
+    border-radius: 24px;
+    padding: 32px 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 0 40px rgba(0, 242, 254, 0.15);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #f8fafc;
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
+  }
+  .impetus-brand-badge {
+    background: rgba(0, 242, 254, 0.1);
+    color: #00f2fe;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border: 1px solid rgba(0, 242, 254, 0.3);
+  }
+  .impetus-story-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .impetus-date {
+    color: #94a3b8;
+    font-size: 12px;
+  }
+  .impetus-title {
+    font-size: 28px;
+    font-weight: 900;
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0 0 24px 0;
+  }
+  .impetus-metric-box {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .metric-label {
+    display: block;
+    color: #94a3b8;
+    font-size: 12px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .metric-value {
+    font-size: 24px;
+    font-weight: 800;
+    color: #f8fafc;
+  }
+  .impetus-coach-tag {
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 600;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 16px;
+    margin: 0;
+  }
+</style>
