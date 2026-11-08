@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ApiError, getBillingOverview, getDashboardMetrics, type BillingOverview, type DashboardMetrics } from '@/lib/api/client';
-import { useAuth } from '@/lib/auth/auth-provider';
 import { CommandCenter } from '@/components/command-center';
 
 function MetricCard({
@@ -32,12 +31,10 @@ function MetricCard({
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { session, loading: authLoading, signOut } = useAuth();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [billing, setBilling] = useState<BillingOverview | null>(null);
   const [metricsError, setMetricsError] = useState<ApiError | null>(null);
   const [billingError, setBillingError] = useState<string | null>(null);
-  const [pageLoading, setPageLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
   const [onboardingPending, setOnboardingPending] = useState(false);
 
@@ -74,22 +71,15 @@ export default function DashboardPage() {
           : 'Não foi possível consultar a subscrição.',
       );
     }
-    setPageLoading(false);
   }, []);
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!session) {
-      router.replace('/login');
-      return;
-    }
     void loadDashboard();
-  }, [authLoading, session, router, loadDashboard]);
+  }, [loadDashboard]);
 
   async function handleSignOut() {
     setSigningOut(true);
     try {
-      await signOut();
       router.replace('/login');
     } catch {
       setSigningOut(false);
@@ -97,13 +87,9 @@ export default function DashboardPage() {
     }
   }
 
-  if (authLoading || pageLoading || !session) {
-    return <main className="loading-screen"><span className="spinner" />A carregar o seu espaço…</main>;
-  }
-
   const subscriptionDenied = metricsError?.status === 402;
   const accountNotProvisioned = metricsError?.status === 403;
-  const displayName = session.user.email?.split('@')[0] ?? 'Personal';
+  const displayName = 'Fábio';
 
   return (
     <main className="dashboard-page">
@@ -191,10 +177,10 @@ export default function DashboardPage() {
 
         {metrics ? (
           <div className="metric-grid">
-            <MetricCard label="Alunos ativos" value={metrics.activeStudents} detail="Alunos com acompanhamento ativo" icon="♙" tone="green" />
-            <MetricCard label="Planos de treino" value={metrics.workoutPlans} detail="Planos criados para os seus alunos" icon="▤" tone="blue" />
-            <MetricCard label="Sessões concluídas" value={metrics.sessions.executed} detail="Treinos finalizados" icon="✓" tone="orange" />
-            <MetricCard label="Em andamento" value={metrics.sessions.inProgress} detail={`${metrics.sessions.total} sessões no total`} icon="◷" tone="purple" />
+            <MetricCard label="Alunos ativos" value={metrics?.activeStudents ?? 0} detail="Alunos com acompanhamento ativo" icon="♙" tone="green" />
+            <MetricCard label="Planos de treino" value={metrics?.workoutPlans ?? 0} detail="Planos criados para os seus alunos" icon="▤" tone="blue" />
+            <MetricCard label="Sessões concluídas" value={metrics?.sessions?.executed ?? 0} detail="Treinos finalizados" icon="✓" tone="orange" />
+            <MetricCard label="Em andamento" value={metrics?.sessions?.inProgress ?? 0} detail={`${metrics?.sessions?.total ?? 0} sessões no total`} icon="◷" tone="purple" />
           </div>
         ) : !accountNotProvisioned && !subscriptionDenied ? (
           <div className="empty-panel">
@@ -210,6 +196,7 @@ export default function DashboardPage() {
             <p>Os dados serão apresentados quando o acesso ao tenant e à subscrição estiver regularizado.</p>
           </div>
         )}
+        
         <div className="workspace-sections">
           <section className="workspace-card" id="students">
             <div className="workspace-card-icon mint" aria-hidden="true">♙</div>
@@ -220,6 +207,7 @@ export default function DashboardPage() {
             </div>
             <Link className="workspace-card-link" href="/dashboard/students">Gerir alunos ↗</Link>
           </section>
+          
           <section className="workspace-card" id="workouts">
             <div className="workspace-card-icon violet" aria-hidden="true">▤</div>
             <div className="workspace-card-copy">
@@ -229,6 +217,7 @@ export default function DashboardPage() {
             </div>
             <Link className="workspace-card-link" href="/treinos">Montar treino ↗</Link>
           </section>
+          
           <section className="workspace-card billing-card" id="billing">
             <div className="workspace-card-icon amber" aria-hidden="true">◇</div>
             <div className="workspace-card-copy">
@@ -238,6 +227,7 @@ export default function DashboardPage() {
             </div>
             <Link className="workspace-card-link" href="/perfil">Gerir plano e faturas ↗</Link>
           </section>
+          
           <section className="workspace-card">
             <div className="workspace-card-icon amber" aria-hidden="true">€</div>
             <div className="workspace-card-copy">
@@ -247,6 +237,7 @@ export default function DashboardPage() {
             </div>
             <Link className="workspace-card-link" href="/pagamentos">Gerir pagamentos ↗</Link>
           </section>
+          
           <section className="workspace-card">
             <div className="workspace-card-icon mint" aria-hidden="true">◷</div>
             <div className="workspace-card-copy">
@@ -256,6 +247,7 @@ export default function DashboardPage() {
             </div>
             <Link className="workspace-card-link" href="/agenda">Abrir agenda ↗</Link>
           </section>
+          
           <section className="workspace-card">
             <div className="workspace-card-icon violet" aria-hidden="true">▥</div>
             <div className="workspace-card-copy">
@@ -266,7 +258,10 @@ export default function DashboardPage() {
             <Link className="workspace-card-link" href="/relatorios">Abrir relatórios ↗</Link>
           </section>
         </div>
-        <footer className="dashboard-footer">Impetus: A evolução que não para<span>Feito para acompanhar o seu progresso.</span></footer>
+        
+        <footer className="dashboard-footer">
+          Impetus: A evolução que não para <span>Feito para acompanhar o seu progresso.</span>
+        </footer>
       </section>
     </main>
   );

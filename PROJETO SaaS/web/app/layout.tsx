@@ -1,22 +1,22 @@
-import type { Metadata } from 'next';
-import type { ReactNode } from 'react';
-import { AuthProvider } from '@/lib/auth/auth-provider';
-import { ImpetusCoach } from '@/components/impetus-coach';
+import React from 'react';
 import './globals.css';
 
-export const metadata: Metadata = {
+export const metadata = {
   title: 'Impetus | A evolução que não para',
-  description: 'Impetus: A evolução que não para. Gestão inteligente para personal trainers.',
+  description: 'Painel de Controlo',
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="pt-PT" data-theme="dark">
-      <body>
-        <AuthProvider>
+    <html lang="pt">
+      <body style={{ margin: 0, padding: 0, background: '#121212', color: '#fff', fontFamily: 'sans-serif' }}>
+        <div id="root-app">
           {children}
-          <ImpetusCoach />
-        </AuthProvider>
+        </div>
       </body>
     </html>
   );

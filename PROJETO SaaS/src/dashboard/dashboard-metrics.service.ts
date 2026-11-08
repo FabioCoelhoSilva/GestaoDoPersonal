@@ -21,12 +21,9 @@ export class DashboardMetricsService {
 
     return {
       activeStudents,
-      workoutPlans,
-      sessions: {
-        executed: executedSessions,
-        inProgress: inProgressSessions,
-        total: totalSessions
-      }
+      activeWorkouts: workoutPlans,
+      monthlySessions: totalSessions,
+      growthRate: 0
     };
   }
 }

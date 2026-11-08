@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { paymentRouter } from './payments/payment.routes'; // Ajuste o caminho se necessário para o local onde guardou este ficheiro
+import dashboardRouter from './payments/dashboard/dashboard.routes';
 
 dotenv.config();
 
@@ -19,11 +19,9 @@ app.get('/health', (req, res) => {
 });
 
 // ==========================================
-// 2. ROTAS PRINCIPAIS DA API (Centralizadas)
+// 2. ROTA DE MÉTRICAS DO DASHBOARD
 // ==========================================
-// Como o seu paymentRouter já aplica internamente o supabaseAuthMiddleware,
-// as rotas em /api herdam essa proteção.
-app.use('/api', paymentRouter);
+app.use('/api/dashboard', dashboardRouter);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
