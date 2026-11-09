@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 
 interface Student {
   id: string;
@@ -14,19 +15,25 @@ export default function AlunosPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulação da busca na tabela students do Supabase (com RLS ativo)
-    // Na próxima etapa ligaremos o cliente Supabase diretamente aqui.
-    const fetchStudents = async () => {
+    async function fetchStudents() {
       try {
         setLoading(true);
-        // Exemplo de estrutura pronta para receber os dados
-        setStudents([]);
-      } catch (error) {
-        console.error('Erro ao buscar alunos:', error);
+        const { data, error } = await supabase
+          .from('students')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Erro ao buscar alunos:', error.message);
+        } else {
+          setStudents(data || []);
+        }
+      } catch (err) {
+        console.error('Erro inesperado:', err);
       } finally {
         setLoading(false);
       }
-    };
+    }
 
     fetchStudents();
   }, []);
@@ -49,7 +56,7 @@ export default function AlunosPage() {
         ) : students.length === 0 ? (
           <div className="p-12 text-center">
             <p className="text-gray-600 font-medium">Nenhum aluno registado na base de dados.</p>
-            <p className="text-xs text-gray-400 mt-1">As tabelas do Supabase com RLS ativo estão prontas para receber os registos.</p>
+            <p className="text-xs text-gray-400 mt-1">As tabelas do Supabase com RLS ativo estão operacionais.</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
@@ -59,6 +66,9 @@ export default function AlunosPage() {
                   <p className="font-medium text-gray-900">{student.name}</p>
                   <p className="text-sm text-gray-500">{student.email}</p>
                 </div>
+                <span className="text-xs text-gray-400">
+                  {new Date(student.created_at).toLocaleDateString('pt-BR')}
+                </span>
               </div>
             ))}
           </div>
