@@ -2,12 +2,12 @@
 
 ## 📌 Protocolo de Governança e Desenvolvimento
 1. **Decisão Autônoma:** O especialista define e executa os passos com base estrita no PRD.
-2. **Resumo Prático & Testes:** Cada entrega inclui um resumo simples e o relatório de testes.
+2. **Resumo Prático & Testes:** Cada entrega inclui um resumo simples e o relatório de testes aprovados.
 3. **Métrica de Progresso:** Atualização contínua do percentual e status das épicas.
 
 ---
 
-## 📊 Status Geral do Projeto (Progresso Atual: 75%)
+## 📊 Status Geral do Projeto (Progresso Atual: 95%)
 
 ### Épica 1: Infraestrutura, Segurança e Arquitetura Base
 - **Status:** `[Concluído]` (100%)
@@ -19,10 +19,9 @@
 - **Status:** `[Concluído]` (100%)
 
 ### Épica 4: Módulo de Prescrição de Treinos & Pack Visual
-- **Status:** `[Em Execução]` (90%)
-- [x] Criação da interface da biblioteca de treinos e suporte ao acervo visual.
-- [x] Módulo de atribuição de fichas por aluno (`app/dashboard/treinos/atribuir/page.tsx`).
+- **Status:** `[Concluído]` (100%)
 
 ### Épica 5: Monetização e Pagamentos
-- **Status:** `[Pendente]` (0%)
-- [ ] Integração com Stripe Webhooks.
+- **Status:** `[Em Execução]` (95%)
+- [x] Endpoint de webhooks do Stripe.
+- [x] Página de gestão de assinatura e planos (`app/dashboard/assinatura/page.tsx`).
