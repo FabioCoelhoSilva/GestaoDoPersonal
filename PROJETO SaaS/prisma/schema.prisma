@@ -484,4 +484,16 @@ model Aluno {
   fumaOuBebe        Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  treinos           Treino[]
+}
+
+model Treino {
+  id          String   @id @default(uuid())
+  alunoId     String
+  aluno       Aluno    @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  nomeTreino  String
+  objetivo    String?
+  exercicios  Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

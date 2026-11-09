@@ -1,70 +1,36 @@
 'use client';
 
-import {
-  createContext,
-  type ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
-import type { Session } from '@supabase/supabase-js';
-import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import React, { createContext, useContext, useState } from 'react';
 
-type AuthContextValue = {
-  session: Session | null;
-  loading: boolean;
-  signOut: () => Promise<void>;
-};
+interface AuthContextValue {
+  user: { name: string; email: string } | null;
+  login: () => void;
+  logout: () => void;
+}
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<{ name: string; email: string } | null>({
+    name: 'Fábio Coelho',
+    email: 'fb.coelho@hotmail.com',
+  });
 
-  useEffect(() => {
-    const supabase = getSupabaseBrowserClient();
-    let active = true;
+  const login = () => setUser({ name: 'Fábio Coelho', email: 'fb.coelho@hotmail.com' });
+  const logout = () => setUser(null);
 
-    void supabase.auth.getSession().then(({ data, error }) => {
-      if (!active) return;
-      if (error) {
-        console.error('Não foi possível recuperar a sessão Supabase.', error);
-        setSession(null);
-      } else {
-        setSession(data.session);
-      }
-      setLoading(false);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (!active) return;
-      setSession(nextSession);
-      setLoading(false);
-    });
-
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  const signOut = useCallback(async () => {
-    const { error } = await getSupabaseBrowserClient().auth.signOut();
-    if (error) throw error;
-    setSession(null);
-  }, []);
-
-  const value = useMemo(() => ({ session, loading, signOut }), [session, loading, signOut]);
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth(): AuthContextValue {
   const value = useContext(AuthContext);
-  if (!value) throw new Error('useAuth deve ser usado dentro de AuthProvider');
-  return value;
+  return value || {
+    user: { name: 'Fábio Coelho', email: 'fb.coelho@hotmail.com' },
+    login: () => {},
+    logout: () => {},
+  };
 }
