@@ -7,25 +7,21 @@
 
 ---
 
-## 📊 Status Geral do Projeto (Progresso Atual: 65%)
+## 📊 Status Geral do Projeto (Progresso Atual: 75%)
 
 ### Épica 1: Infraestrutura, Segurança e Arquitetura Base
 - **Status:** `[Concluído]` (100%)
-- [x] Configuração inicial do Next.js App Router e dependências.
-- [x] Criação do mapa oficial de arquitetura (`ARQUITETURA.md`).
-- [x] Ativação de RLS nas tabelas do Supabase.
 
 ### Épica 2: Módulo de Autenticação e Gestão de Acesso
-- **Status:** `[Em Execução]` (90%)
-- [x] Criação da tela de Login e cliente Supabase.
+- **Status:** `[Concluído]` (100%)
 
 ### Épica 3: Módulo de Alunos & Anamnese
 - **Status:** `[Concluído]` (100%)
-- [x] Listagem de alunos integrada e formulário de anamnese.
 
 ### Épica 4: Módulo de Prescrição de Treinos & Pack Visual
-- **Status:** `[Em Execução]` (50%)
-- [x] Criação da interface da biblioteca de treinos e suporte ao acervo visual (`app/dashboard/treinos/page.tsx`).
+- **Status:** `[Em Execução]` (90%)
+- [x] Criação da interface da biblioteca de treinos e suporte ao acervo visual.
+- [x] Módulo de atribuição de fichas por aluno (`app/dashboard/treinos/atribuir/page.tsx`).
 
 ### Épica 5: Monetização e Pagamentos
 - **Status:** `[Pendente]` (0%)
