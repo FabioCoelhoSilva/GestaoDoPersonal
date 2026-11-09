@@ -473,3 +473,15 @@ model StripeWebhookEvent {
   @@index([personalId, receivedAt])
   @@map("stripe_webhook_events")
 }
+
+model Aluno {
+  id                String   @id @default(uuid())
+  nomeAluno         String
+  email             String?  @unique
+  objetivoPrincipal String?
+  lesoesArticulares String?
+  historicoCardio   String?
+  fumaOuBebe        Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
