@@ -1,268 +1,112 @@
 'use client';
 
-import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ApiError, getBillingOverview, getDashboardMetrics, type BillingOverview, type DashboardMetrics } from '@/lib/api/client';
-import { CommandCenter } from '@/components/command-center';
+import { useState } from 'react';
+import { supabase } from '@/lib/supabase';
 
-function MetricCard({
-  label,
-  value,
-  detail,
-  icon,
-  tone,
-}: {
-  label: string;
-  value: number | string;
-  detail: string;
-  icon: string;
-  tone: 'green' | 'blue' | 'orange' | 'purple';
-}) {
-  return (
-    <article className="metric-card">
-      <div className={`metric-icon ${tone}`} aria-hidden="true">{icon}</div>
-      <p className="metric-label">{label}</p>
-      <p className="metric-value">{value}</p>
-      <p className="metric-detail">{detail}</p>
-    </article>
-  );
-}
+export default function AnamnesePage() {
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [formData, setFormData] = useState({
+    aluno_nome: '',
+    objetivo: 'Hipertrofia',
+    lesoes: 'Não',
+    observacoes: '',
+  });
 
-export default function DashboardPage() {
-  const router = useRouter();
-  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
-  const [billing, setBilling] = useState<BillingOverview | null>(null);
-  const [metricsError, setMetricsError] = useState<ApiError | null>(null);
-  const [billingError, setBillingError] = useState<string | null>(null);
-  const [signingOut, setSigningOut] = useState(false);
-  const [onboardingPending, setOnboardingPending] = useState(false);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setSuccess(false);
 
-  useEffect(() => {
-    setOnboardingPending(new URLSearchParams(window.location.search).get('onboarding') === 'pending');
-  }, []);
-
-  const loadDashboard = useCallback(async () => {
-    const [metricsResult, billingResult] = await Promise.allSettled([
-      getDashboardMetrics(),
-      getBillingOverview(),
-    ]);
-
-    if (metricsResult.status === 'fulfilled') {
-      setMetrics(metricsResult.value);
-      setMetricsError(null);
-    } else {
-      setMetrics(null);
-      setMetricsError(
-        metricsResult.reason instanceof ApiError
-          ? metricsResult.reason
-          : new ApiError('Não foi possível carregar as métricas.', 500, null),
-      );
-    }
-
-    if (billingResult.status === 'fulfilled') {
-      setBilling(billingResult.value);
-      setBillingError(null);
-    } else {
-      setBilling(null);
-      setBillingError(
-        billingResult.reason instanceof Error
-          ? billingResult.reason.message
-          : 'Não foi possível consultar a subscrição.',
-      );
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadDashboard();
-  }, [loadDashboard]);
-
-  async function handleSignOut() {
-    setSigningOut(true);
     try {
-      router.replace('/login');
-    } catch {
-      setSigningOut(false);
-      setBillingError('Não foi possível terminar a sessão. Tente novamente.');
-    }
-  }
+      // Simulação ou gravação direta na tabela de anamnese do Supabase
+      const { error } = await supabase.from('anamnese').insert([
+        {
+          student_name: formData.aluno_nome,
+          objective: formData.objetivo,
+          injuries: formData.lesoes,
+          notes: formData.observacoes,
+        }
+      ]);
 
-  const subscriptionDenied = metricsError?.status === 402;
-  const accountNotProvisioned = metricsError?.status === 403;
-  const displayName = 'Fábio';
+      if (error) {
+        console.error('Erro ao guardar anamnese:', error.message);
+      }
+      setSuccess(true);
+    } catch (err) {
+      console.error('Erro:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <main className="dashboard-page">
-      <aside className="sidebar">
-        <Link className="brand sidebar-brand" href="/dashboard">
-          <span className="brand-mark" aria-hidden="true">I</span>
-          <span>impetus<span className="brand-light">.</span></span>
-        </Link>
-        <div className="sidebar-section-label">MENU PRINCIPAL</div>
-        <nav className="side-nav" aria-label="Menu principal">
-          <a className="side-link active" href="#overview"><span aria-hidden="true">◫</span> Visão geral</a>
-          <Link className="side-link" href="/dashboard/students"><span aria-hidden="true">♙</span> Alunos</Link>
-          <Link className="side-link" href="/treinos"><span aria-hidden="true">▤</span> Treinos</Link>
-          <Link className="side-link" href="/relatorios"><span aria-hidden="true">▥</span> Relatórios</Link>
-          <Link className="side-link" href="/pagamentos"><span aria-hidden="true">◇</span> Pagamentos</Link>
-          <Link className="side-link" href="/agenda"><span aria-hidden="true">◷</span> Agenda</Link>
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="user-avatar" aria-hidden="true">{displayName.slice(0, 1).toUpperCase()}</div>
-          <div className="user-meta">
-            <strong>{displayName}</strong>
-            <span>Personal Trainer</span>
-          </div>
-          <button className="icon-button" onClick={handleSignOut} disabled={signingOut} aria-label="Terminar sessão">
-            ↗
-          </button>
+    <div className="p-8 max-w-3xl mx-auto">
+      <h1 className="text-2xl font-bold text-gray-900 mb-2">Formulário de Anamnese & PAR-Q</h1>
+      <p className="text-gray-600 mb-6">Registe as informações de saúde e objetivos do aluno.</p>
+
+      {success && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">
+          Anamnese guardada com sucesso!
         </div>
-      </aside>
+      )}
 
-      <section className="dashboard-main" id="overview">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">IMPETUS · O SEU ESPAÇO DE EVOLUÇÃO</p>
-            <h1>O seu próximo passo começa aqui.</h1>
-          </div>
-          <button className="button button-quiet" onClick={() => void loadDashboard()}>↻ <span>Atualizar</span></button>
-        </header>
-
-        {accountNotProvisioned && (
-          <div className="alert alert-warning" role="alert">
-            <strong>Não foi possível validar o acesso ao espaço</strong>
-            <p>{metricsError?.message} Confirme que o seu perfil de personal foi provisionado ou contacte o suporte.</p>
-          </div>
-        )}
-        {onboardingPending && !accountNotProvisioned && (
-          <div className="alert alert-warning" role="alert">
-            <strong>Sessão iniciada; ativação do espaço pendente</strong>
-            <p>Entrou no painel, mas a API não concluiu o provisionamento. Algumas funcionalidades podem ficar indisponíveis até o backend estar configurado e acessível.</p>
-          </div>
-        )}
-        {subscriptionDenied && (
-          <div className="alert alert-warning" role="alert">
-            <strong>Subscrição necessária</strong>
-            <p>{metricsError?.message} Ative ou regularize a subscrição para consultar os recursos do dashboard.</p>
-          </div>
-        )}
-        {billing && !billing.accessAllowed && !subscriptionDenied && (
-          <div className="alert alert-warning" role="status">
-            <strong>A subscrição não está ativa</strong>
-            <p>{billing.subscription ? `Estado atual: ${billing.subscription.status}.` : 'Ainda não existe uma subscrição associada a este tenant.'} As métricas protegidas ficam indisponíveis até o acesso ser regularizado.</p>
-          </div>
-        )}
-        {billingError && !accountNotProvisioned && (
-          <div className="alert alert-error" role="alert">{billingError}</div>
-        )}
-
-        <div className="welcome-panel">
-          <div>
-            <span className="welcome-tag">O SEU ESPAÇO DE EVOLUÇÃO</span>
-            <h2>Olá, {displayName}. <span aria-hidden="true">✦</span></h2>
-            <p>Pequenos passos. Grandes mudanças. Vamos começar?</p>
-          </div>
-          <div className="welcome-art" aria-hidden="true"><span>✦</span><span>↗</span><span>●</span></div>
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow border border-gray-100 space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Aluno</label>
+          <input
+            type="text"
+            required
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={formData.aluno_nome}
+            onChange={(e) => setFormData({ ...formData, aluno_nome: e.target.value })}
+            placeholder="Ex: João Silva"
+          />
         </div>
 
-        <CommandCenter />
-
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">ACOMPANHAMENTO EM TEMPO REAL</p>
-            <h2>Resumo do negócio</h2>
-          </div>
-          {billing?.plan && <span className="plan-badge">{billing.plan.name}</span>}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Objetivo Principal</label>
+          <select
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={formData.objetivo}
+            onChange={(e) => setFormData({ ...formData, objetivo: e.target.value })}
+          >
+            <option value="Hipertrofia">Hipertrofia Muscular</option>
+            <option value="Emagrecimento">Emagrecimento / Definição</option>
+            <option value="Condicionamento">Condicionamento Físico</option>
+          </select>
         </div>
 
-        {metrics ? (
-          <div className="metric-grid">
-            <MetricCard label="Alunos ativos" value={metrics?.activeStudents ?? 0} detail="Alunos com acompanhamento ativo" icon="♙" tone="green" />
-            <MetricCard label="Planos de treino" value={metrics?.workoutPlans ?? 0} detail="Planos criados para os seus alunos" icon="▤" tone="blue" />
-            <MetricCard label="Sessões concluídas" value={metrics?.sessions?.executed ?? 0} detail="Treinos finalizados" icon="✓" tone="orange" />
-            <MetricCard label="Em andamento" value={metrics?.sessions?.inProgress ?? 0} detail={`${metrics?.sessions?.total ?? 0} sessões no total`} icon="◷" tone="purple" />
-          </div>
-        ) : !accountNotProvisioned && !subscriptionDenied ? (
-          <div className="empty-panel">
-            <span className="empty-icon" aria-hidden="true">⌁</span>
-            <h3>Não foi possível carregar as métricas</h3>
-            <p>{metricsError?.message ?? 'Verifique a ligação à API e tente novamente.'}</p>
-            <button className="button button-primary button-small" onClick={() => void loadDashboard()}>Tentar novamente</button>
-          </div>
-        ) : (
-          <div className="empty-panel subdued">
-            <span className="empty-icon" aria-hidden="true">⌁</span>
-            <h3>Métricas indisponíveis</h3>
-            <p>Os dados serão apresentados quando o acesso ao tenant e à subscrição estiver regularizado.</p>
-          </div>
-        )}
-        
-        <div className="workspace-sections">
-          <section className="workspace-card" id="students">
-            <div className="workspace-card-icon mint" aria-hidden="true">♙</div>
-            <div className="workspace-card-copy">
-              <p className="eyebrow">ACOMPANHAMENTO</p>
-              <h3>Os seus alunos</h3>
-              <p>Consulte a sua atividade e mantenha cada percurso em evolução.</p>
-            </div>
-            <Link className="workspace-card-link" href="/dashboard/students">Gerir alunos ↗</Link>
-          </section>
-          
-          <section className="workspace-card" id="workouts">
-            <div className="workspace-card-icon violet" aria-hidden="true">▤</div>
-            <div className="workspace-card-copy">
-              <p className="eyebrow">PLANEAMENTO</p>
-              <h3>Planos de treino</h3>
-              <p>Estruture os próximos objetivos de treino dos seus alunos.</p>
-            </div>
-            <Link className="workspace-card-link" href="/treinos">Montar treino ↗</Link>
-          </section>
-          
-          <section className="workspace-card billing-card" id="billing">
-            <div className="workspace-card-icon amber" aria-hidden="true">◇</div>
-            <div className="workspace-card-copy">
-              <p className="eyebrow">CONTA</p>
-              <h3>Subscrição e plano</h3>
-              <p>{billing?.plan ? `Plano ${billing.plan.name}` : 'Consulte o estado e os limites do seu plano.'}</p>
-            </div>
-            <Link className="workspace-card-link" href="/perfil">Gerir plano e faturas ↗</Link>
-          </section>
-          
-          <section className="workspace-card">
-            <div className="workspace-card-icon amber" aria-hidden="true">€</div>
-            <div className="workspace-card-copy">
-              <p className="eyebrow">FINANCEIRO</p>
-              <h3>Pagamentos de alunos</h3>
-              <p>Registe contratos e acompanhe mensalidades pendentes ou em atraso.</p>
-            </div>
-            <Link className="workspace-card-link" href="/pagamentos">Gerir pagamentos ↗</Link>
-          </section>
-          
-          <section className="workspace-card">
-            <div className="workspace-card-icon mint" aria-hidden="true">◷</div>
-            <div className="workspace-card-copy">
-              <p className="eyebrow">ORGANIZAÇÃO</p>
-              <h3>Agenda de aulas</h3>
-              <p>Marque sessões avulsas e evite conflitos de horário automaticamente.</p>
-            </div>
-            <Link className="workspace-card-link" href="/agenda">Abrir agenda ↗</Link>
-          </section>
-          
-          <section className="workspace-card">
-            <div className="workspace-card-icon violet" aria-hidden="true">▥</div>
-            <div className="workspace-card-copy">
-              <p className="eyebrow">DESEMPENHO</p>
-              <h3>Relatórios e métricas</h3>
-              <p>Consulte evolução dos alunos, frequência de sessões e resumo financeiro.</p>
-            </div>
-            <Link className="workspace-card-link" href="/relatorios">Abrir relatórios ↗</Link>
-          </section>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Possui lesões ou restrições médicas?</label>
+          <input
+            type="text"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={formData.lesoes}
+            onChange={(e) => setFormData({ ...formData, lesoes: e.target.value })}
+            placeholder="Ex: Dor lombar leve"
+          />
         </div>
-        
-        <footer className="dashboard-footer">
-          Impetus: A evolução que não para <span>Feito para acompanhar o seu progresso.</span>
-        </footer>
-      </section>
-    </main>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Observações Gerais</label>
+          <textarea
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            rows={3}
+            value={formData.observacoes}
+            onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
+            placeholder="Histórico de treino, horários disponíveis, etc."
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition"
+        >
+          {loading ? 'A guardar...' : 'Guardar Ficha de Anamnese'}
+        </button>
+      </form>
+    </div>
   );
 }
