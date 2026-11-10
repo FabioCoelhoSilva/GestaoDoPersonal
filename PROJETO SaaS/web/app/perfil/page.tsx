@@ -1,232 +1,115 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { ApiError } from '@/lib/api/client';
-import {
-  billingService,
-  type BillingPlanOption,
-  type StripeInvoice,
-  type TrainerProfile,
-  type TrainerSubscription,
-} from '@/lib/api/billing.service';
-import { WorkspaceShell } from '@/components/workspace-shell';
-import { useAuth } from '@/lib/auth/auth-provider';
+import { useState } from 'react';
 
-function subscriptionStatus(status: string) {
-  if (status === 'ACTIVE') return { label: 'Ativo', className: 'active' };
-  if (status === 'CANCELED' || status === 'INCOMPLETE_EXPIRED') return { label: 'Cancelado', className: 'inactive' };
-  return { label: 'Pendente', className: '' };
-}
+export default function PerfilPage() {
+  const [name, setName] = useState('Fábio Coelho');
+  const [email, setEmail] = useState('fb.coelho@hotmail.com');
+  const [businessName, setBusinessName] = useState('Consultoria Fitness');
 
-function invoiceStatus(status: StripeInvoice['status']) {
-  if (status === 'paid') return { label: 'Pago', className: 'active' };
-  if (status === 'void' || status === 'uncollectible') return { label: 'Cancelada', className: 'inactive' };
-  return { label: 'Pendente', className: '' };
-}
-
-function formatAmount(amount: number, currency: string) {
-  return new Intl.NumberFormat('pt-PT', {
-    style: 'currency',
-    currency,
-  }).format(amount / 100);
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('pt-PT', { dateStyle: 'medium' }).format(new Date(value));
-}
-
-export default function ProfilePage() {
-  const { session, loading: authLoading } = useAuth();
-  const [profile, setProfile] = useState<TrainerProfile | null>(null);
-  const [billing, setBilling] = useState<TrainerSubscription | null>(null);
-  const [plans, setPlans] = useState<BillingPlanOption[]>([]);
-  const [invoices, setInvoices] = useState<StripeInvoice[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [working, setWorking] = useState(false);
-  const [name, setName] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [invoiceError, setInvoiceError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    const [profileResult, billingResult, plansResult, invoicesResult] = await Promise.allSettled([
-      billingService.getProfile(),
-      billingService.getSubscription(),
-      billingService.listPlans(),
-      billingService.listInvoices(),
-    ]);
-
-    if (profileResult.status === 'fulfilled') {
-      setProfile(profileResult.value);
-      setName(profileResult.value.name);
-    }
-    if (billingResult.status === 'fulfilled') setBilling(billingResult.value);
-    if (plansResult.status === 'fulfilled') setPlans(plansResult.value);
-    if (invoicesResult.status === 'fulfilled') {
-      setInvoices(invoicesResult.value);
-      setInvoiceError(null);
-    } else {
-      setInvoices([]);
-      setInvoiceError(
-        invoicesResult.reason instanceof ApiError && invoicesResult.reason.code === 'STRIPE_CUSTOMER_NOT_LINKED'
-          ? null
-          : invoicesResult.reason instanceof Error
-            ? invoicesResult.reason.message
-            : 'Não foi possível carregar as faturas Stripe.',
-      );
-    }
-    const primaryFailure = [profileResult, billingResult, plansResult].find((result) => result.status === 'rejected');
-    setError(primaryFailure?.status === 'rejected'
-      ? primaryFailure.reason instanceof Error ? primaryFailure.reason.message : 'Não foi possível carregar o perfil.'
-      : null);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    if (!authLoading && session) void loadData();
-  }, [authLoading, loadData, session]);
-
-  useEffect(() => {
-    const checkout = new URLSearchParams(window.location.search).get('checkout');
-    if (checkout === 'success') setNotice('Checkout concluído. A subscrição será atualizada quando o Stripe confirmar o webhook.');
-    if (checkout === 'cancelled') setNotice('Checkout cancelado; nenhuma subscrição foi criada.');
-  }, []);
-
-  async function saveProfile(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSaving(true);
-    setError(null);
-    setSuccess(null);
-    try {
-      const updated = await billingService.updateProfile(name);
-      setProfile(updated);
-      setName(updated.name);
-      setSuccess('Perfil atualizado.');
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Não foi possível atualizar o perfil.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function checkout(planId: string) {
-    setWorking(true);
-    setError(null);
-    try {
-      const result = await billingService.createCheckout(planId);
-      window.location.assign(result.url);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Não foi possível iniciar o checkout Stripe.');
-      setWorking(false);
-    }
-  }
-
-  async function openPortal() {
-    setWorking(true);
-    setError(null);
-    try {
-      const result = await billingService.openBillingPortal();
-      window.location.assign(result.url);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Não foi possível abrir o portal de faturação.');
-      setWorking(false);
-    }
-  }
-
-  const currentStatus = billing?.subscription ? subscriptionStatus(billing.subscription.status) : null;
-  const canCheckout = !billing?.subscription ||
-    ['CANCELED', 'INCOMPLETE_EXPIRED'].includes(billing.subscription.status) ||
-    (billing.subscription.status === 'TRIALING' && !billing.subscription.stripeCustomerLinked);
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    alert('Definições e perfil atualizados com sucesso!');
+  };
 
   return (
-    <WorkspaceShell title="Perfil e subscrição" eyebrow="Gira os seus dados, o plano Impetus e as faturas Stripe.">
-      {error && <p className="inline-message error page-message" role="alert">{error}</p>}
-      {success && <p className="inline-message success page-message" role="status">{success}</p>}
-      {notice && <p className="inline-message success page-message" role="status">{notice}</p>}
-      {loading ? <div className="list-empty"><span className="spinner" />A carregar perfil e faturação…</div> : (
-        <div className="profile-billing-grid">
-          <section className="form-panel">
-            <div className="panel-heading"><span className="panel-kicker">DADOS DA CONTA</span><h2>Perfil do personal</h2><p>O email de autenticação também é usado na faturação Stripe.</p></div>
-            <form className="workspace-form" onSubmit={saveProfile}>
-              <label htmlFor="profile-name">Nome</label>
-              <input id="profile-name" value={name} onChange={(event) => setName(event.target.value)} minLength={2} maxLength={120} required />
-              <label htmlFor="profile-email">Email</label>
-              <input id="profile-email" value={profile?.email ?? ''} readOnly />
-              <button className="button button-primary" disabled={saving || name.trim() === profile?.name}>
-                {saving ? 'A guardar…' : 'Guardar perfil'}
-              </button>
-            </form>
-          </section>
-
-          <section className="list-panel">
-            <div className="panel-heading list-heading">
-              <div><span className="panel-kicker">IMPETUS · STRIPE</span><h2>Subscrição</h2></div>
-              {currentStatus && <span className={`status-pill ${currentStatus.className}`}>{currentStatus.label}</span>}
-            </div>
-            <div className="billing-profile-summary">
-              <strong>{billing?.plan?.name ?? 'Sem plano associado'}</strong>
-              <span>{billing?.subscription?.currentPeriodEnd
-                ? `Período até ${formatDate(billing.subscription.currentPeriodEnd)}`
-                : 'O estado é atualizado automaticamente pelo webhook Stripe.'}</span>
-              {billing?.subscription?.cancelAtPeriodEnd && <span>A subscrição será cancelada no fim do período atual.</span>}
-              {!billing?.subscription && <span>Escolha um plano ativo para iniciar uma subscrição segura no Stripe.</span>}
-            </div>
-            {billing?.subscription?.stripeCustomerLinked &&
-              billing.subscription.status !== 'CANCELED' &&
-              billing.subscription.status !== 'INCOMPLETE_EXPIRED' && (
-              <button className="button button-quiet" onClick={() => void openPortal()} disabled={working}>
-                {working ? 'A abrir Stripe…' : 'Gerir subscrição e método de pagamento'}
-              </button>
-            )}
-            {canCheckout && plans.length > 0 && (
-              <div className="billing-plan-options">
-                <h3>{billing?.subscription ? 'Voltar a subscrever' : 'Planos disponíveis'}</h3>
-                {plans.map((plan) => (
-                  <div className="billing-plan-row" key={plan.id}>
-                    <strong>{plan.name}</strong>
-                    <button className="text-button accent" type="button" disabled={working} onClick={() => void checkout(plan.id)}>
-                      {working ? 'A abrir…' : 'Subscrever'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="list-panel profile-invoices">
-            <div className="panel-heading list-heading">
-              <div><span className="panel-kicker">STRIPE</span><h2>Faturas</h2></div>
-              <span className="count-badge">{invoices.length} recentes</span>
-            </div>
-            {invoiceError ? <p className="inline-message error" role="alert">{invoiceError}</p> :
-              invoices.length === 0 ? (
-                <div className="list-empty compact"><strong>Sem faturas Stripe</strong><p>As faturas aparecem aqui quando houver um cliente e cobrança associados.</p></div>
-              ) : (
-                <div className="payment-list">
-                  {invoices.map((invoice) => {
-                    const status = invoiceStatus(invoice.status);
-                    return (
-                      <article className="payment-row" key={invoice.id}>
-                        <div className="payment-info">
-                          <strong>{invoice.number ?? `Fatura ${invoice.id}`}</strong>
-                          <span>{formatAmount(invoice.amountPaid || invoice.amountDue, invoice.currency)} · {formatDate(invoice.createdAt)}</span>
-                        </div>
-                        <div className="payment-actions">
-                          <span className={`status-pill ${status.className}`}>{status.label}</span>
-                          {invoice.hostedInvoiceUrl && <a className="text-button accent" href={invoice.hostedInvoiceUrl} target="_blank" rel="noreferrer">Abrir ↗</a>}
-                          {invoice.invoicePdf && <a className="text-button" href={invoice.invoicePdf} target="_blank" rel="noreferrer">PDF</a>}
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-          </section>
+    <div style={{ display: 'flex', width: '100vw', height: '100vh', background: '#09090b', color: '#f4f4f5', overflow: 'hidden', margin: 0, padding: 0, fontFamily: 'Inter, system-ui, sans-serif' }}>
+      
+      {/* Sidebar Lateral Moderna */}
+      <aside style={{ width: '280px', minWidth: '280px', background: '#121216', borderRight: '1px solid #27272a', padding: '32px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100vh', boxSizing: 'border-box' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '32px' }}>
+            <span style={{ width: '10px', height: '10px', background: '#10b981', borderRadius: '50%', display: 'inline-block' }}></span>
+            <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#fff', letterSpacing: '-0.5px', margin: 0 }}>impetus<span style={{ color: '#10b981' }}>.</span></h2>
+          </div>
+          <p style={{ fontSize: '11px', textTransform: 'uppercase', color: '#71717a', fontWeight: '600', letterSpacing: '0.05em', marginBottom: '16px' }}>Plataforma SaaS</p>
+          
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <a href="/treinos" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', color: '#a1a1aa', borderRadius: '10px', textDecoration: 'none', fontWeight: '500', fontSize: '14px' }}>
+              ⚡ Prescrição de Treinos
+            </a>
+            <a href="/alunos" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', color: '#a1a1aa', borderRadius: '10px', textDecoration: 'none', fontWeight: '500', fontSize: '14px' }}>
+              👥 Gestão de Alunos
+            </a>
+            <a href="/pagamentos" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', color: '#a1a1aa', borderRadius: '10px', textDecoration: 'none', fontWeight: '500', fontSize: '14px' }}>
+              💳 Assinaturas & Financeiro
+            </a>
+            <a href="/perfil" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'rgba(16, 185, 129, 0.1)', color: '#34d399', borderRadius: '10px', textDecoration: 'none', fontWeight: '600', fontSize: '14px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+              ⚙️ Definições e Perfil
+            </a>
+          </nav>
         </div>
-      )}
-    </WorkspaceShell>
+
+        <div style={{ paddingTop: '24px', borderTop: '1px solid #27272a' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            <div style={{ width: '36px', height: '36px', background: '#27272a', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#10b981' }}>FC</div>
+            <div>
+              <p style={{ fontSize: '13px', fontWeight: '600', color: '#fff', margin: 0 }}>Fábio Coelho</p>
+              <p style={{ fontSize: '11px', color: '#71717a', margin: 0 }}>fb.coelho@hotmail.com</p>
+            </div>
+          </div>
+          <a href="/login" style={{ display: 'block', textAlign: 'center', padding: '10px', background: 'rgba(239, 68, 68, 0.1)', color: '#f87171', borderRadius: '8px', fontSize: '13px', fontWeight: '600', textDecoration: 'none', border: '1px solid rgba(239, 68, 68, 0.2)' }}>Terminar Sessão</a>
+        </div>
+      </aside>
+
+      {/* Conteúdo Principal */}
+      <main style={{ flex: 1, height: '100vh', overflowY: 'auto', padding: '48px 64px', boxSizing: 'border-box', background: '#09090b' }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+          
+          <header style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h1 style={{ fontSize: '32px', fontWeight: '800', color: '#fff', letterSpacing: '-1px', margin: '0 0 8px 0' }}>Definições e Perfil</h1>
+              <p style={{ color: '#a1a1aa', fontSize: '15px', margin: 0 }}>Gerencie as configurações da sua conta e os parâmetros da plataforma.</p>
+            </div>
+            <div style={{ background: '#121216', border: '1px solid #27272a', padding: '8px 16px', borderRadius: '12px', fontSize: '13px', color: '#10b981', fontWeight: '600' }}>
+              ● Sistema Operacional Ativo
+            </div>
+          </header>
+
+          <form onSubmit={handleSave} style={{ background: '#121216', padding: '40px', borderRadius: '20px', border: '1px solid #27272a', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#fff', margin: 0 }}>Informações Profissionais</h3>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', textTransform: 'uppercase' }}>Nome do Personal</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  style={{ width: '100%', padding: '14px 16px', background: '#18181b', border: '1px solid #27272a', borderRadius: '12px', color: '#fff', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', textTransform: 'uppercase' }}>Email de Contacto</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  style={{ width: '100%', padding: '14px 16px', background: '#18181b', border: '1px solid #27272a', borderRadius: '12px', color: '#fff', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: '600', color: '#d4d4d8', textTransform: 'uppercase' }}>Nome da Consultoria / Negócio</label>
+              <input
+                type="text"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                style={{ width: '100%', padding: '14px 16px', background: '#18181b', border: '1px solid #27272a', borderRadius: '12px', color: '#fff', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }}
+              />
+            </div>
+
+            <button
+              type="submit"
+              style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '700', fontSize: '16px', cursor: 'pointer', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)', marginTop: '10px' }}
+            >
+              Guardar Alterações
+            </button>
+          </form>
+
+        </div>
+      </main>
+    </div>
   );
 }

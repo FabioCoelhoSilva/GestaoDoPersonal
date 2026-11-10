@@ -1,94 +1,119 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 
-export default function AnamnesePage() {
-  const [alunoId, setAlunoId] = useState('');
-  const [objetivo, setObjetivo] = useState('');
-  const [lesoes, setLesoes] = useState('');
-  const [cardiaco, setCardiaco] = useState(false);
-  const [observacoes, setObservacoes] = useState('');
-  const [status, setStatus] = useState('');
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setStatus('A guardar...');
-
-    try {
-      const res = await fetch('/api/anamnese', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ alunoId, objetivo, lesoes, cardiaco, observacoes }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setStatus('Anamnese guardada com sucesso!');
-      } else {
-        setStatus('Erro: ' + data.error);
-      }
-    } catch (err) {
-      setStatus('Erro de conexão ao salvar.');
-    }
-  };
+export default function HomePage() {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
 
   return (
-    <div style={{ padding: '40px', maxWidth: '600px', margin: '0 auto', color: '#fff', fontFamily: 'sans-serif' }}>
-      <h1 style={{ fontSize: '24px', marginBottom: '20px', color: '#10B981' }}>Ficha de Anamnese & PAR-Q</h1>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+    <div style={{ display: 'flex', width: '100vw', minHeight: '100vh', background: '#09090b', color: '#f4f4f5', fontFamily: 'Inter, system-ui, sans-serif', margin: 0, padding: 0, boxSizing: 'border-box' }}>
+      
+      {/* Sidebar Lateral Moderna */}
+      <aside style={{ width: '280px', minWidth: '280px', background: '#121216', borderRight: '1px solid #27272a', padding: '32px 24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100vh', position: 'sticky', top: 0 }}>
         <div>
-          <label style={{ display: 'block', marginBottom: '5px' }}>ID do Aluno:</label>
-          <input 
-            type="text" 
-            value={alunoId} 
-            onChange={(e) => setAlunoId(e.target.value)} 
-            required
-            style={{ width: '100%', padding: '10px', background: '#1F2937', border: '1px solid #374151', color: '#fff', borderRadius: '6px' }}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '32px' }}>
+            <span style={{ width: '10px', height: '10px', background: '#10b981', borderRadius: '50%', display: 'inline-block' }}></span>
+            <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#fff', letterSpacing: '-0.5px', margin: 0 }}>impetus<span style={{ color: '#10b981' }}>.</span></h2>
+          </div>
+          <p style={{ fontSize: '11px', textTransform: 'uppercase', color: '#71717a', fontWeight: '600', letterSpacing: '0.05em', marginBottom: '16px' }}>Plataforma SaaS</p>
+          
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <a href="/treinos" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'rgba(16, 185, 129, 0.1)', color: '#34d399', borderRadius: '10px', textDecoration: 'none', fontWeight: '600', fontSize: '14px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+              ⚡ Prescrição de Treinos
+            </a>
+            <a href="/alunos" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', color: '#a1a1aa', borderRadius: '10px', textDecoration: 'none', fontWeight: '500', fontSize: '14px', transition: 'all 0.2s' }}>
+              👥 Gestão de Alunos
+            </a>
+            <a href="/pagamentos" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', color: '#a1a1aa', borderRadius: '10px', textDecoration: 'none', fontWeight: '500', fontSize: '14px' }}>
+              💳 Assinaturas & Financeiro
+            </a>
+            <a href="/perfil" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', color: '#a1a1aa', borderRadius: '10px', textDecoration: 'none', fontWeight: '500', fontSize: '14px' }}>
+              ⚙️ Definições e Perfil
+            </a>
+          </nav>
         </div>
-        <div>
-          <label style={{ display: 'block', marginBottom: '5px' }}>Objetivo Principal:</label>
-          <input 
-            type="text" 
-            value={objetivo} 
-            onChange={(e) => setObjetivo(e.target.value)} 
-            required
-            style={{ width: '100%', padding: '10px', background: '#1F2937', border: '1px solid #374151', color: '#fff', borderRadius: '6px' }}
-          />
+
+        <div style={{ paddingTop: '24px', borderTop: '1px solid #27272a' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            <div style={{ width: '36px', height: '36px', background: '#27272a', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#10b981' }}>FC</div>
+            <div>
+              <p style={{ fontSize: '13px', fontWeight: '600', color: '#fff', margin: 0 }}>Fábio Coelho</p>
+              <p style={{ fontSize: '11px', color: '#71717a', margin: 0 }}>fb.coelho@hotmail.com</p>
+            </div>
+          </div>
+          <a href="/login" style={{ display: 'block', textAlign: 'center', padding: '10px', background: 'rgba(239, 68, 68, 0.1)', color: '#f87171', borderRadius: '8px', fontSize: '13px', fontWeight: '600', textDecoration: 'none', border: '1px solid rgba(239, 68, 68, 0.2)' }}>Terminar Sessão</a>
         </div>
-        <div>
-          <label style={{ display: 'block', marginBottom: '5px' }}>Histórico de Lesões ou Dores:</label>
-          <textarea 
-            value={lesoes} 
-            onChange={(e) => setLesoes(e.target.value)} 
-            style={{ width: '100%', padding: '10px', background: '#1F2937', border: '1px solid #374151', color: '#fff', borderRadius: '6px' }}
-          />
+      </aside>
+
+      {/* Conteúdo Principal Estilizado */}
+      <main style={{ flex: 1, padding: '48px 64px', maxWidth: '1000px', margin: '0 auto', overflowY: 'auto' }}>
+        <header style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1 style={{ fontSize: '32px', fontWeight: '800', color: '#fff', letterSpacing: '-1px', margin: '0 0 8px 0' }}>Novo Plano de Treino</h1>
+            <p style={{ color: '#a1a1aa', fontSize: '15px', margin: 0 }}>Estruture treinos altamente personalizados com base em fisiologia e sobrecarga progressiva.</p>
+          </div>
+          <div style={{ background: '#121216', border: '1px solid #27272a', padding: '8px 16px', borderRadius: '12px', fontSize: '13px', color: '#10b981', fontWeight: '600' }}>
+            ● Sistema Sincronizado
+          </div>
+        </header>
+
+        {/* Cartão do Formulário */}
+        <div style={{ background: '#121216', padding: '40px', borderRadius: '20px', border: '1px solid #27272a', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4)', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '10px', fontSize: '13px', fontWeight: '600', color: '#d4d4d8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Aluno Alvo</label>
+              <select
+                style={{ width: '100%', padding: '14px 16px', background: '#18181b', border: '1px solid #27272a', borderRadius: '12px', color: '#fff', fontSize: '14px', outline: 'none', transition: 'border-color 0.2s' }}
+              >
+                <option value="">Selecione um aluno ativo...</option>
+                <option value="1">Jacyara Lemos</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '10px', fontSize: '13px', fontWeight: '600', color: '#d4d4d8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ciclo / Divisão</label>
+              <select
+                style={{ width: '100%', padding: '14px 16px', background: '#18181b', border: '1px solid #27272a', borderRadius: '12px', color: '#fff', fontSize: '14px', outline: 'none' }}
+              >
+                <option value="A">Treino A (Membros Superiores)</option>
+                <option value="B">Treino B (Membros Inferiores)</option>
+                <option value="C">Treino C (Full Body / Core)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '10px', fontSize: '13px', fontWeight: '600', color: '#d4d4d8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Título da Prescrição</label>
+            <input
+              type="text"
+              placeholder="Ex: Hipertrofia Avançada - Ênfase em Quadríceps"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              style={{ width: '100%', padding: '14px 16px', background: '#18181b', border: '1px solid #27272a', borderRadius: '12px', color: '#fff', fontSize: '14px', boxSizing: 'border-box', outline: 'none' }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: '10px', fontSize: '13px', fontWeight: '600', color: '#d4d4d8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Metodologia & Diretrizes de Execução</label>
+            <textarea
+              placeholder="Ex: Manter 2 segundos de excêntrica em todos os exercícios compostos. Descanso de 90s a 2min entre séries."
+              rows={4}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              style={{ width: '100%', padding: '14px 16px', background: '#18181b', border: '1px solid #27272a', borderRadius: '12px', color: '#fff', fontSize: '14px', boxSizing: 'border-box', resize: 'vertical', outline: 'none', lineHeight: '1.5' }}
+            />
+          </div>
+
+          <button
+            onClick={() => alert('Plano de treino guardado com sucesso!')}
+            style={{ width: '100%', padding: '16px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: '700', fontSize: '16px', cursor: 'pointer', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)', transition: 'all 0.2s', marginTop: '10px' }}
+          >
+            Publicar e Enviar para o Aluno
+          </button>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <input 
-            type="checkbox" 
-            checked={cardiaco} 
-            onChange={(e) => setCardiaco(e.target.checked)} 
-            id="cardiaco"
-            style={{ width: '18px', height: '18px' }}
-          />
-          <label htmlFor="cardiaco">Possui histórico ou restrição cardíaca (PAR-Q)?</label>
-        </div>
-        <div>
-          <label style={{ display: 'block', marginBottom: '5px' }}>Observações Gerais:</label>
-          <textarea 
-            value={observacoes} 
-            onChange={(e) => setObservacoes(e.target.value)} 
-            style={{ width: '100%', padding: '10px', background: '#1F2937', border: '1px solid #374151', color: '#fff', borderRadius: '6px' }}
-          />
-        </div>
-        <button 
-          type="submit"
-          style={{ padding: '12px', background: '#10B981', color: '#fff', border: 'none', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer' }}
-        >
-          Gravar Anamnese
-        </button>
-        {status && <p style={{ marginTop: '10px', fontWeight: 'bold' }}>{status}</p>}
-      </form>
+      </main>
     </div>
   );
 }

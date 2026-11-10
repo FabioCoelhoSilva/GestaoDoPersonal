@@ -2,13 +2,10 @@
 
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { AuthShell } from '@/components/auth-shell';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
-import { provisionPersonal } from '@/lib/api/client';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -19,19 +16,17 @@ export default function LoginPage() {
     setErrorMessage(null);
     setSubmitting(true);
 
-    const { error } = await getSupabaseBrowserClient().auth.signInWithPassword({ email, password });
-    if (error) {
+    const supabase = getSupabaseBrowserClient();
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error || !data.session) {
       setSubmitting(false);
       setErrorMessage('Não foi possível iniciar sessão. Verifique o email e a palavra-passe.');
       return;
     }
-    try {
-      await provisionPersonal(email);
-      router.replace('/dashboard');
-    } catch (provisionError) {
-      console.error('Não foi possível provisionar o espaço após o login.', provisionError);
-      router.replace('/dashboard?onboarding=pending');
-    }
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    window.location.assign('/treinos');
   }
 
   return (

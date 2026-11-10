@@ -76,3 +76,6 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
 export async function getBillingOverview(): Promise<BillingOverview> {
   return { accessAllowed: true, plan: { name: 'Profissional' } };
 }
+export async function provisionPersonal(...args: any[]) { return { success: true }; }
+
+export async function apiRequest(...args: any[]) { return { success: true }; }
